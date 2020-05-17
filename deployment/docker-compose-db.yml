@@ -1,0 +1,28 @@
+version: '3.7'
+
+networks:
+    backend:
+
+services:
+
+    db:
+        container_name: db
+        #db with dev data
+        #image: app-postgres12.2:0.0.1
+        # for pure postgres
+        image: postgres:12.2
+        volumes:
+            - ./data/postgres:/docker-entrypoint-initdb.d
+        restart: always
+        environment:
+            PGDATA: /var/lib/postgresql-static/data
+            POSTGRES_DB:        postgres
+            POSTGRES_USER:      postgres
+            POSTGRES_PASSWORD:  postgres
+        ports:
+            - "5401:5432"
+        networks:
+            - backend
+        tty: true
+
+        
