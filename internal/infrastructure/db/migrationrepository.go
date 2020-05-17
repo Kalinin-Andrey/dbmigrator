@@ -32,7 +32,6 @@ func NewMigrationRepository(repository *repository) (*MigrationRepository, error
 
 func (r MigrationRepository) SetLogger(logger api.Logger) {
 	r.logger = logger
-	return
 }
 
 // get reads entities with the specified ID from the database.
@@ -52,11 +51,11 @@ func (r MigrationRepository) get(ctx context.Context, tx *sqlx.Tx, id uint) (*mi
 func (r MigrationRepository) Query(ctx context.Context, offset, limit uint) ([]migration.MigrationLog, error) {
 	var items []migration.MigrationLog
 
-	if limit < 1 {
+	if limit == 0 {
 		limit = MaxLIstLimit
 	}
 
-	err := r.db.DB().SelectContext(ctx, &items, "SELECT * FROM migration ORDER BY id")
+	err := r.db.DB().SelectContext(ctx, &items, "SELECT * FROM migration ORDER BY id LIMIT $1 OFFSET $2", limit, offset)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, api.ErrNotFound
@@ -223,13 +222,13 @@ func (r MigrationRepository) update(ctx context.Context, tx *sqlx.Tx, entity *mi
 }
 
 // delete deletes a record with the specified ID from the database.
-func (r MigrationRepository) delete(ctx context.Context, tx *sqlx.Tx, id uint) error {
+/*func (r MigrationRepository) delete(ctx context.Context, tx *sqlx.Tx, id uint) error {
 	_, err := tx.ExecContext(ctx, "DELETE FROM migration WHERE id = $1", id)
 	if err != nil {
 		return errors.Wrapf(err, "MigrationRepository: error deleting record id = %v", id)
 	}
 	return nil
-}
+}*/
 
 
 func (r MigrationRepository) BeginTx(ctx context.Context) (migration.Transaction, error) {
@@ -261,7 +260,7 @@ func (r MigrationRepository) ExecSQL(ctx context.Context, sql string) error {
 }
 
 
-func (r MigrationRepository) ExecFunc(ctx context.Context, f api.MigrationFunc) (err error) {
+func (r MigrationRepository) ExecFunc(ctx context.Context, f api.MigrationFunc) (returnErr error) {
 	tx, err := r.db.DB().BeginTxx(ctx, nil)
 	if err != nil {
 		return errors.Wrapf(err, "MigrationRepository.ExecFunc: transaction begin error")
@@ -269,8 +268,11 @@ func (r MigrationRepository) ExecFunc(ctx context.Context, f api.MigrationFunc) 
 
 	defer func() {
 		if err := recover(); err != nil {
-			err = errors.Wrapf(api.ErrUsersFunc, "MigrationRepository.ExecFunc error: %v", err)
-			tx.Rollback()
+			returnErr = errors.Wrapf(api.ErrUsersFunc, "MigrationRepository.ExecFunc error: %v", err)
+			err = tx.Rollback()
+			if err != nil {
+				returnErr = errors.Errorf("MigrationRepository.ExecFunc: transaction rollback error: %v", err)
+			}
 		}
 	}()
 
@@ -307,7 +309,7 @@ func (r MigrationRepository) ExecSQLTx(ctx context.Context, t migration.Transact
 }
 
 
-func (r MigrationRepository) ExecFuncTx(ctx context.Context, t migration.Transaction, f api.MigrationFunc) (err error) {
+func (r MigrationRepository) ExecFuncTx(ctx context.Context, t migration.Transaction, f api.MigrationFunc) (returnErr error) {
 	tx, ok := t.(*sqlx.Tx)
 	if !ok {
 		return errors.New("can not assert param t migration.Transaction to *sqlx.Tx")
@@ -315,11 +317,11 @@ func (r MigrationRepository) ExecFuncTx(ctx context.Context, t migration.Transac
 
 	defer func() {
 		if err := recover(); err != nil {
-			err = errors.Wrapf(api.ErrUsersFunc, "MigrationRepository.ExecFunc error: %v", err)
+			returnErr = errors.Wrapf(api.ErrUsersFunc, "MigrationRepository.ExecFunc error: %v", err)
 		}
 	}()
 
-	err = f(tx)
+	err := f(tx)
 	if err != nil {
 		return errors.Wrapf(api.ErrUsersFunc, "MigrationRepository.ExecFunc error: %v", err)
 	}

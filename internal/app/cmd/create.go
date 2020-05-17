@@ -68,9 +68,21 @@ func init() {
 	createCmd.Flags().StringVarP(&migrationType, "type", "t", "", "Type of migration to be created. Must be one of this: " + fmt.Sprintf("%v", api.MigrationTypes))
 	createCmd.Flags().StringVarP(&migrationName, "name", "n", "", "Name of migration to be created. Must be matches the specified regular expression: \"[a-zA-Z0-9_-]+\" ")
 
-	rootCmd.MarkFlagRequired("id")
-	rootCmd.MarkFlagRequired("type")
-	rootCmd.MarkFlagRequired("name")
+	err := rootCmd.MarkFlagRequired("id")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	err = rootCmd.MarkFlagRequired("type")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	err = rootCmd.MarkFlagRequired("name")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
 	// Here you will define your flags and configuration settings.
 

@@ -76,8 +76,8 @@ func (l MigrationsLogsList) Copy() (mls MigrationsLogsList) {
 
 func GroupLogsByStatus(list []MigrationLog) (l map[uint]MigrationsLogsList) {
 	l = make(map[uint]MigrationsLogsList, 2)
-	l[StatusNotApplied] = make(MigrationsLogsList, 0)
-	l[StatusApplied] = make(MigrationsLogsList, 0)
+	l[StatusNotApplied] = make(MigrationsLogsList)
+	l[StatusApplied] = make(MigrationsLogsList)
 
 	for _, i := range list {
 		if i.Status == StatusApplied {
@@ -92,7 +92,7 @@ func GroupLogsByStatus(list []MigrationLog) (l map[uint]MigrationsLogsList) {
 
 
 func MigrationsListFilterExceptByKeys(sourceList api.MigrationsList, exceptList MigrationsLogsList) (l api.MigrationsList) {
-	l = make(api.MigrationsList, 0)
+	l = make(api.MigrationsList)
 
 	for id, m := range sourceList {
 		if _, ok := exceptList[id]; !ok {
@@ -105,7 +105,7 @@ func MigrationsListFilterExceptByKeys(sourceList api.MigrationsList, exceptList 
 
 
 func MigrationsListFilterExistsByKeys(sourceList api.MigrationsList, exceptList MigrationsLogsList) (l api.MigrationsList) {
-	l = make(api.MigrationsList, 0)
+	l = make(api.MigrationsList)
 
 	for id, m := range sourceList {
 		if _, ok := exceptList[id]; ok {
@@ -118,7 +118,7 @@ func MigrationsListFilterExistsByKeys(sourceList api.MigrationsList, exceptList 
 
 
 func MigrationsLogsFilterExceptByKeys(sourceList MigrationsLogsList, exceptList MigrationsLogsList) (l MigrationsLogsList) {
-	l = make(MigrationsLogsList, 0)
+	l = make(MigrationsLogsList)
 
 	for id, m := range sourceList {
 		if _, ok := exceptList[id]; !ok {
@@ -131,7 +131,7 @@ func MigrationsLogsFilterExceptByKeys(sourceList MigrationsLogsList, exceptList 
 
 
 func MigrationsLogsFilterExistsByKeys(sourceList MigrationsLogsList, exceptList MigrationsLogsList) (l MigrationsLogsList) {
-	l = make(MigrationsLogsList, 0)
+	l = make(MigrationsLogsList)
 
 	for id, m := range sourceList {
 		if _, ok := exceptList[id]; ok {

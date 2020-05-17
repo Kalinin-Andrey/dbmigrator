@@ -18,7 +18,7 @@ type IRepository interface {}
 type repository struct {
 	db                dbx.DBx
 	logger            api.Logger
-	defaultConditions map[string]interface{}
+	//defaultConditions map[string]interface{}
 }
 
 // Limit is default limit

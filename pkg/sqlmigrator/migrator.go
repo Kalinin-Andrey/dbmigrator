@@ -21,12 +21,11 @@ type SQLMigrator struct {
 	logger	api.Logger
 	domain	Domain
 	ms		api.MigrationsList
-	err		error
 }
 
 const DefaultQuantityDown = 1
 
-var ms		api.MigrationsList	= make(api.MigrationsList, 0)
+var ms		api.MigrationsList	= make(api.MigrationsList)
 var errs	[]error				= make([]error, 0)
 
 

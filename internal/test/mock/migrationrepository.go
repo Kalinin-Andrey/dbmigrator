@@ -2,7 +2,6 @@ package mock
 
 import (
 	"context"
-	"github.com/Kalinin-Andrey/dbmigrator/internal/infrastructure/db"
 	"github.com/Kalinin-Andrey/dbmigrator/internal/test/fixture"
 	"sort"
 
@@ -62,9 +61,9 @@ func (r *MigrationRepository) Query(ctx context.Context, offset, limit uint) ([]
 		},
 	})
 
-	if limit < 1 {
+	/*if limit == 0 {
 		limit = db.MaxLIstLimit
-	}
+	}*/
 	sl := fixture.MigrationsLogsList.GetSlice()
 	sort.Sort(migration.MigrationsLogsSlice(sl))
 
@@ -83,10 +82,9 @@ func (r *MigrationRepository) QueryTx(ctx context.Context, t migration.Transacti
 		},
 	})
 
-	if limit < 1 {
+	/*if limit == 0 {
 		limit = db.MaxLIstLimit
-	}
-
+	}*/
 	mls := fixture.MigrationsLogsList
 	if query != nil && query.Where != nil {
 		tmls := FilterMigrationsLogsByStatus(*mls, query.Where.Status)

@@ -71,9 +71,21 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&dsn, "dsn", "", "dsn string for connection to DB")
 	rootCmd.PersistentFlags().StringVar(&dir, "dir", "", "path to directory with migrations")
 
-	viper.BindPFlag("log", rootCmd.PersistentFlags().Lookup("log"))
-	viper.BindPFlag("dsn", rootCmd.PersistentFlags().Lookup("dsn"))
-	viper.BindPFlag("dir", rootCmd.PersistentFlags().Lookup("dir"))
+	err := viper.BindPFlag("log", rootCmd.PersistentFlags().Lookup("log"))
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	err = viper.BindPFlag("dsn", rootCmd.PersistentFlags().Lookup("dsn"))
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	err = viper.BindPFlag("dir", rootCmd.PersistentFlags().Lookup("dir"))
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

@@ -173,13 +173,19 @@ func (s service) Up(ctx context.Context, ms api.MigrationsList, quantity int) er
 	}
 	err = s.repo.BatchUpdateTx(ctx, t, migrationsLogsForUpdate)
 	if err != nil {
-		t.Rollback()
+		err = t.Rollback()
+		if err != nil {
+			return errors.Wrapf(err, "migration.Service.Up: transaction rollback error")
+		}
 		return errors.Wrapf(err, "migration.Service.Up: batch update error")
 	}
 
 	err = s.repo.BatchCreateTx(ctx, t, migrationsLogsForCreate)
 	if err != nil {
-		t.Rollback()
+		err = t.Rollback()
+		if err != nil {
+			return errors.Wrapf(err, "migration.Service.Up: transaction rollback error")
+		}
 		return errors.Wrapf(err, "migration.Service.Up: batch create error")
 	}
 
@@ -212,11 +218,14 @@ func (s service) Down(ctx context.Context, ms api.MigrationsList, quantity int) 
 		quantity = DefaultDownQuantity
 	}
 
-	migrationsLogsForUpdate, _, err := s.downProceed(ctx, migrations, ids[:quantity])
+	migrationsLogsForUpdate, _, er := s.downProceed(ctx, migrations, ids[:quantity])
 
 	err = s.repo.BatchUpdateTx(ctx, t, migrationsLogsForUpdate)
 	if err != nil {
-		t.Rollback()
+		err = t.Rollback()
+		if err != nil {
+			return errors.Wrapf(err, "migration.Service.Down: transaction rollback error")
+		}
 		return errors.Wrapf(err, "migration.Service.Down: batch update error")
 	}
 
@@ -225,7 +234,7 @@ func (s service) Down(ctx context.Context, ms api.MigrationsList, quantity int) 
 		return errors.Wrapf(err, "migration.Service.Down: transaction commit error")
 	}
 
-	return nil
+	return er
 }
 
 // Redo a last migration
@@ -254,7 +263,10 @@ func (s service) Redo(ctx context.Context, ms api.MigrationsList) error {
 
 	err = s.actionExecTx(ctx, t, m.Down)
 	if err != nil {
-		t.Rollback()
+		err = t.Rollback()
+		if err != nil {
+			return errors.Wrapf(err, "migration.Service.Redo: transaction rollback error")
+		}
 		s.logger.Print("down #", m.ID, " - error: ", err)
 		return errors.Wrapf(err, "migration.Service.Redo: error on down a migration #%v", mLog.ID)
 	}
@@ -262,7 +274,10 @@ func (s service) Redo(ctx context.Context, ms api.MigrationsList) error {
 
 	err = s.actionExecTx(ctx, t, m.Up)
 	if err != nil {
-		t.Rollback()
+		err = t.Rollback()
+		if err != nil {
+			return errors.Wrapf(err, "migration.Service.Redo: transaction rollback error")
+		}
 		s.logger.Print("up #", m.ID, " - error: ", err)
 		return errors.Wrapf(err, "migration.Service.Redo: error on up a migration #%v", mLog.ID)
 	}
@@ -347,7 +362,7 @@ func (s service) Create(ctx context.Context, ms api.MigrationsList, dir string, 
 	}
 
 	if _, ok := ms[p.ID]; ok {
-		//return errors.Wrapf(api.ErrBadRequest, "Migration #%v already exists", p.ID)
+		return errors.Wrapf(api.ErrBadRequest, "Migration #%v already exists", p.ID)
 	}
 	fileName := fmt.Sprintf("%03d", p.ID) + "_" + p.Name +".go"
 	fileName = filepath.Join(dir, fileName)
