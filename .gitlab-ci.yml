@@ -21,7 +21,7 @@ unit-tests:
   before_script:
     - go get -u github.com/jstemmer/go-junit-report
   script:
-    - go test -v 2>&1 | go-junit-report > report.xml
+    - go test -v --cover internal/test/dbmigrator_test.go 2>&1 | go-junit-report > report.xml
   artifacts:
     reports:
       junit: report.xml
