@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/Kalinin-Andrey/dbmigrator/pkg/dbmigrator"
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/Kalinin-Andrey/dbmigrator/pkg/dbmigrator"
 )
 
 // dbversionCmd represents the dbversion command

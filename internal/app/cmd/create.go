@@ -7,7 +7,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Kalinin-Andrey/dbmigrator/pkg/dbmigrator"
-	"github.com/Kalinin-Andrey/dbmigrator/pkg/dbmigrator/api"
+
+	"github.com/Kalinin-Andrey/dbmigrator/internal/domain/migration"
 )
 
 var migrationType	string
@@ -20,7 +21,7 @@ var createCmd = &cobra.Command{
 	Short: "Create a new migration.",
 	Long: `Create a new migration.`,
 	Args: func(cmd *cobra.Command, args []string) error {
-		p := &api.MigrationCreateParams{
+		p := &migration.MigrationCreateParams{
 			ID:		migrationID,
 			Type:	migrationType,
 			Name:	migrationName,
@@ -29,7 +30,7 @@ var createCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("create called")
-		err := dbmigrator.Create(api.MigrationCreateParams{
+		err := dbmigrator.Create(migration.MigrationCreateParams{
 			ID:		migrationID,
 			Type:	migrationType,
 			Name:	migrationName,
@@ -45,20 +46,20 @@ func init() {
 	rootCmd.AddCommand(createCmd)
 
 	createCmd.Flags().UintVarP(&migrationID, "id", "i", 0, "ID of migration to be created. Must be uint type.")
-	createCmd.Flags().StringVarP(&migrationType, "type", "t", "", "Type of migration to be created. Must be one of this: " + fmt.Sprintf("%v", api.MigrationTypes))
+	createCmd.Flags().StringVarP(&migrationType, "type", "t", "", "Type of migration to be created. Must be one of this: " + fmt.Sprintf("%v", migration.MigrationTypes))
 	createCmd.Flags().StringVarP(&migrationName, "name", "n", "", "Name of migration to be created. Must be matches the specified regular expression: \"[a-zA-Z0-9_-]+\" ")
 
-	err := rootCmd.MarkFlagRequired("id")
+	err := createCmd.MarkFlagRequired("id")
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	err = rootCmd.MarkFlagRequired("type")
+	err = createCmd.MarkFlagRequired("type")
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	err = rootCmd.MarkFlagRequired("name")
+	err = createCmd.MarkFlagRequired("name")
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

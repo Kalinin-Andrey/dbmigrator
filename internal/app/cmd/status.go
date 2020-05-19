@@ -2,13 +2,13 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/Kalinin-Andrey/dbmigrator/pkg/dbmigrator/api"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/Kalinin-Andrey/dbmigrator/pkg/dbmigrator"
+	"github.com/Kalinin-Andrey/dbmigrator/pkg/dbmigrator/api"
 )
 
 // statusCmd represents the status command
