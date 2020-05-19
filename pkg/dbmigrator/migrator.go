@@ -40,7 +40,8 @@ type Domain struct {
 var dbMigrator *DBMigrator
 
 
-func Add(item migration.Migration) {
+func Add(i api.Migration) {
+	item := i.DomainMigration()
 
 	if _, ok := ms[item.ID]; ok {
 		errs = append(errs, errors.Wrapf(api.ErrDuplicate, "Duplicate migration ID: %v", item.ID))
@@ -52,7 +53,7 @@ func Add(item migration.Migration) {
 		return
 	}
 
-	ms[item.ID] = item
+	ms[item.ID] = *item
 }
 
 

@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/Kalinin-Andrey/dbmigrator/internal/domain/migration"
 	"github.com/Kalinin-Andrey/dbmigrator/internal/pkg/dbx"
+	"github.com/jmoiron/sqlx"
 	"os"
 )
 
@@ -68,5 +69,5 @@ func (m Migration) DomainMigration() *migration.Migration {
 	}
 }
 
-
+type MigrationFunc func(tx *sqlx.Tx) error
 
