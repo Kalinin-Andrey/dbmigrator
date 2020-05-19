@@ -61,11 +61,23 @@ type Migration struct {
 }
 
 func (m Migration) DomainMigration() *migration.Migration {
+	var up, down interface{}
+	up		= m.Up
+	down	= m.Down
+
+	if act, ok := (m.Up).(MigrationFunc); ok {
+		up = (migration.MigrationFunc)(act)
+	}
+
+	if act, ok := (m.Down).(MigrationFunc); ok {
+		down = (migration.MigrationFunc)(act)
+	}
+
 	return &migration.Migration{
 		ID:   m.ID,
 		Name: m.Name,
-		Up:   m.Up,
-		Down: m.Down,
+		Up:   up,
+		Down: down,
 	}
 }
 
