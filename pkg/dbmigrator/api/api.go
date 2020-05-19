@@ -24,11 +24,28 @@ func (config *Configuration) ExpandEnv() {
 	config.DSN = os.ExpandEnv(config.DSN)
 }
 
-func (c *Configuration) DBConf() *dbx.Configuration {
+func (c *Configuration) DBxConf() *dbx.Configuration {
 	return &dbx.Configuration{
 		DSN:     c.DSN,
 		Dir:     c.Dir,
 		Dialect: c.Dialect,
+	}
+}
+
+
+var MigrationTypes = []interface{}{migration.MigrationTypeSQL, migration.MigrationTypeGo}
+
+type MigrationCreateParams struct {
+	ID		uint
+	Type	string
+	Name	string
+}
+
+func (p *MigrationCreateParams) CoreParams() *migration.MigrationCreateParams {
+	return &migration.MigrationCreateParams{
+		ID:		p.ID,
+		Type:	p.Type,
+		Name:	p.Name,
 	}
 }
 

@@ -65,7 +65,7 @@ func Init(ctx context.Context, config api.Configuration, logger api.Logger) erro
 	if dbMigrator == nil {
 
 
-		dbx, err := dbx.New(*config.DBConf(), nil)
+		dbx, err := dbx.New(*config.DBxConf(), nil)
 		if err != nil {
 			return err
 		}
@@ -197,7 +197,7 @@ func (m *DBMigrator) DBVersion() (uint, error) {
 }
 
 
-func Create(p migration.MigrationCreateParams) (err error) {
+func Create(p api.MigrationCreateParams) (err error) {
 	if dbMigrator == nil {
 		return api.ErrNotInitialised
 	}
@@ -205,15 +205,16 @@ func Create(p migration.MigrationCreateParams) (err error) {
 }
 
 
-func (m *DBMigrator) Create(p migration.MigrationCreateParams) (err error) {
-	if err = p.Validate(); err != nil {
+func (m *DBMigrator) Create(p api.MigrationCreateParams) (err error) {
+	cp := p.CoreParams()
+	if err = cp.Validate(); err != nil {
 		return errors.Wrapf(err, "Invalid create params")
 	}
 
-	if _, ok := m.ms[p.ID]; ok {
-		return errors.Wrapf(api.ErrBadRequest, "Migration #%v already exists", p.ID)
+	if _, ok := m.ms[cp.ID]; ok {
+		return errors.Wrapf(api.ErrBadRequest, "Migration #%v already exists", cp.ID)
 	}
-	fileName := fmt.Sprintf("%03d", p.ID) + "_" + p.Name +".go"
+	fileName := fmt.Sprintf("%03d", cp.ID) + "_" + cp.Name +".go"
 	fileName = filepath.Join(m.config.Dir, fileName)
 
 	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
@@ -222,7 +223,7 @@ func (m *DBMigrator) Create(p migration.MigrationCreateParams) (err error) {
 	}
 	defer f.Close()
 
-	err = m.domain.Migration.Service.Create(m.ctx, f, p)
+	err = m.domain.Migration.Service.Create(m.ctx, f, *cp)
 	return api.AppErrorConv(err)
 }
 
