@@ -1,4 +1,4 @@
-package api
+package apperror
 
 import(
 	"github.com/pkg/errors"

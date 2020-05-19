@@ -2,11 +2,13 @@ package mock
 
 import (
 	"context"
-	"github.com/Kalinin-Andrey/dbmigrator/internal/test/fixture"
 	"sort"
 
+	"github.com/Kalinin-Andrey/dbmigrator/internal/pkg/apperror"
+
+	"github.com/Kalinin-Andrey/dbmigrator/internal/app"
 	"github.com/Kalinin-Andrey/dbmigrator/internal/domain/migration"
-	"github.com/Kalinin-Andrey/dbmigrator/pkg/sqlmigrator/api"
+	"github.com/Kalinin-Andrey/dbmigrator/internal/test/fixture"
 )
 
 type Transaction struct {
@@ -38,11 +40,11 @@ func NewMigrationRepository() *MigrationRepository {
 	}
 }
 
-func (r *MigrationRepository) Reset(logger api.Logger) {
+func (r *MigrationRepository) Reset(logger app.Logger) {
 	r.ExecutionLogs = make([]MigrationRepositoryLog, 0, 10)
 }
 
-func (r *MigrationRepository) SetLogger(logger api.Logger) {
+func (r *MigrationRepository) SetLogger(logger app.Logger) {
 	r.ExecutionLogs = append(r.ExecutionLogs, MigrationRepositoryLog{
 		MethodName:	"SetLogger",
 		Params:		map[string]interface{}{
@@ -92,7 +94,7 @@ func (r *MigrationRepository) QueryTx(ctx context.Context, t migration.Transacti
 	}
 
 	if len(*mls) == 0 {
-		return nil, api.ErrNotFound
+		return nil, apperror.ErrNotFound
 	}
 
 	sl := mls.GetSlice()
@@ -129,7 +131,7 @@ func (r *MigrationRepository) Last(ctx context.Context, query *migration.QueryCo
 	}
 
 	if len(*mls) == 0 {
-		return nil, api.ErrNotFound
+		return nil, apperror.ErrNotFound
 	}
 
 	sl := mls.GetSlice()
@@ -155,7 +157,7 @@ func (r *MigrationRepository) LastTx(ctx context.Context, t migration.Transactio
 	}
 
 	if len(*mls) == 0 {
-		return nil, api.ErrNotFound
+		return nil, apperror.ErrNotFound
 	}
 
 	sl := mls.GetSlice()
@@ -187,7 +189,7 @@ func (r *MigrationRepository) ExecSQLTx(ctx context.Context, t migration.Transac
 	return nil
 }
 
-func (r *MigrationRepository) ExecFunc(ctx context.Context, f api.MigrationFunc) (err error) {
+func (r *MigrationRepository) ExecFunc(ctx context.Context, f migration.MigrationFunc) (err error) {
 	r.ExecutionLogs = append(r.ExecutionLogs, MigrationRepositoryLog{
 		MethodName:	"ExecFunc",
 		Params:		map[string]interface{}{
@@ -198,7 +200,7 @@ func (r *MigrationRepository) ExecFunc(ctx context.Context, f api.MigrationFunc)
 	return nil
 }
 
-func (r *MigrationRepository) ExecFuncTx(ctx context.Context, t migration.Transaction, f api.MigrationFunc) (err error) {
+func (r *MigrationRepository) ExecFuncTx(ctx context.Context, t migration.Transaction, f migration.MigrationFunc) (err error) {
 	r.ExecutionLogs = append(r.ExecutionLogs, MigrationRepositoryLog{
 		MethodName:	"ExecFuncTx",
 		Params:		map[string]interface{}{
@@ -232,7 +234,7 @@ func (r *MigrationRepository) BatchCreateTx(ctx context.Context, t migration.Tra
 
 	for id, ml := range list {
 		if _, ok := (*fixture.MigrationsLogsList)[id]; ok {
-			return api.ErrDuplicate
+			return apperror.ErrDuplicate
 		}
 		(*fixture.MigrationsLogsList)[id] = ml
 	}
@@ -252,7 +254,7 @@ func (r *MigrationRepository) BatchUpdateTx(ctx context.Context, t migration.Tra
 
 	for id, ml := range list {
 		if _, ok := (*fixture.MigrationsLogsList)[id]; !ok {
-			return api.ErrNotFound
+			return apperror.ErrNotFound
 		}
 		(*fixture.MigrationsLogsList)[id] = ml
 	}

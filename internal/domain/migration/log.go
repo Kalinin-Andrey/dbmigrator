@@ -3,7 +3,6 @@ package migration
 import (
 	"time"
 
-	"github.com/Kalinin-Andrey/dbmigrator/pkg/sqlmigrator/api"
 )
 
 // MigrationLog struct
@@ -21,13 +20,13 @@ type MigrationsLogsSlice []MigrationLog
 
 const (
 	// TableName const
-	TableName        = "migration"
+	TableName        = "dbmigrator_migration"
 	StatusNotApplied = 0
 	StatusApplied    = 1
 	StatusError      = 2
 )
 
-var SQLCreateTable string = `CREATE TABLE IF NOT EXISTS public."migration" (
+var SQLCreateTable string = `CREATE TABLE IF NOT EXISTS public."` + TableName + `" (
 	id int4 NOT NULL,
 	status int4 NOT NULL DEFAULT 0,
 	name varchar(100) NOT NULL,
@@ -91,8 +90,8 @@ func GroupLogsByStatus(list []MigrationLog) (l map[uint]MigrationsLogsList) {
 }
 
 
-func MigrationsListFilterExceptByKeys(sourceList api.MigrationsList, exceptList MigrationsLogsList) (l api.MigrationsList) {
-	l = make(api.MigrationsList)
+func MigrationsListFilterExceptByKeys(sourceList MigrationsList, exceptList MigrationsLogsList) (l MigrationsList) {
+	l = make(MigrationsList)
 
 	for id, m := range sourceList {
 		if _, ok := exceptList[id]; !ok {
@@ -104,8 +103,8 @@ func MigrationsListFilterExceptByKeys(sourceList api.MigrationsList, exceptList 
 }
 
 
-func MigrationsListFilterExistsByKeys(sourceList api.MigrationsList, exceptList MigrationsLogsList) (l api.MigrationsList) {
-	l = make(api.MigrationsList)
+func MigrationsListFilterExistsByKeys(sourceList MigrationsList, exceptList MigrationsLogsList) (l MigrationsList) {
+	l = make(MigrationsList)
 
 	for id, m := range sourceList {
 		if _, ok := exceptList[id]; ok {
@@ -140,15 +139,6 @@ func MigrationsLogsFilterExistsByKeys(sourceList MigrationsLogsList, exceptList 
 	}
 
 	return l
-}
-
-
-func NewMigrationLog (m api.Migration, status uint) *MigrationLog {
-	return &MigrationLog{
-		ID:		m.ID,
-		Status:	status,
-		Name:	m.Name,
-	}
 }
 
 

@@ -1,12 +1,14 @@
-package sqlmigrator
+package dbmigrator
 
 import (
 	"context"
+	"fmt"
 	"github.com/Kalinin-Andrey/dbmigrator/internal/pkg/dbx"
-	"github.com/Kalinin-Andrey/dbmigrator/pkg/sqlmigrator/api"
+	"github.com/Kalinin-Andrey/dbmigrator/pkg/dbmigrator/api"
 	"github.com/pkg/errors"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/Kalinin-Andrey/dbmigrator/internal/domain/migration"
 	dbrep "github.com/Kalinin-Andrey/dbmigrator/internal/infrastructure/db"
@@ -15,18 +17,16 @@ import (
 const Dialect string = "postgres"
 
 
-type SQLMigrator struct {
+type DBMigrator struct {
 	ctx		context.Context
 	config	api.Configuration
 	logger	api.Logger
 	domain	Domain
-	ms		api.MigrationsList
+	ms		migration.MigrationsList
 }
 
-const DefaultQuantityDown = 1
-
-var ms		api.MigrationsList	= make(api.MigrationsList)
-var errs	[]error				= make([]error, 0)
+var ms		= make(migration.MigrationsList)
+var errs	= make([]error, 0)
 
 
 // Domain is a Domain Layer Entry Point
@@ -37,10 +37,10 @@ type Domain struct {
 	}
 }
 
-var sqlMigrator *SQLMigrator
+var dbMigrator *DBMigrator
 
 
-func Add(item api.Migration) {
+func Add(item migration.Migration) {
 
 	if _, ok := ms[item.ID]; ok {
 		errs = append(errs, errors.Wrapf(api.ErrDuplicate, "Duplicate migration ID: %v", item.ID))
@@ -56,16 +56,16 @@ func Add(item api.Migration) {
 }
 
 
-// Init initialises SQLMigrator instance
+// Init initialises DBMigrator instance
 func Init(ctx context.Context, config api.Configuration, logger api.Logger) error {
 	if len(errs) > 0 {
-		return errors.Errorf("SQLMigrator.Init errors: \n%v", errs)
+		return errors.Errorf("DBMigrator.Init errors: \n%v", errs)
 	}
 
-	if sqlMigrator == nil {
+	if dbMigrator == nil {
 
 
-		dbx, err := dbx.New(config, nil)
+		dbx, err := dbx.New(*config.DBConf(), nil)
 		if err != nil {
 			return err
 		}
@@ -80,7 +80,7 @@ func Init(ctx context.Context, config api.Configuration, logger api.Logger) erro
 			return errors.Errorf("Can not cast DB repository for entity %q to %v.IRepository. Repo: %v", migration.TableName, migration.TableName, rep)
 		}
 
-		sqlMigrator, err = NewSQLMigrator(ctx, config, nil, repository, ms)
+		dbMigrator, err = NewSQLMigrator(ctx, config, logger, repository, ms)
 		if err != nil {
 			return err
 		}
@@ -90,7 +90,7 @@ func Init(ctx context.Context, config api.Configuration, logger api.Logger) erro
 }
 
 
-func NewSQLMigrator(ctx context.Context, config api.Configuration, logger api.Logger, repository migration.IRepository, ms api.MigrationsList) (*SQLMigrator, error) {
+func NewSQLMigrator(ctx context.Context, config api.Configuration, logger api.Logger, repository migration.IRepository, ms migration.MigrationsList) (*DBMigrator, error) {
 	config.Dialect = Dialect
 	if logger == nil {
 		logger = log.New(os.Stdout, "sqlmigrator", log.LstdFlags)
@@ -103,10 +103,10 @@ func NewSQLMigrator(ctx context.Context, config api.Configuration, logger api.Lo
 
 	err := domain.Migration.Service.CreateTable(ctx)
 	if err != nil {
-		return nil, err
+		return nil, api.AppErrorConv(err)
 	}
 
-	return &SQLMigrator{
+	return &DBMigrator{
 		ctx:    ctx,
 		config: config,
 		logger: logger,
@@ -117,54 +117,58 @@ func NewSQLMigrator(ctx context.Context, config api.Configuration, logger api.Lo
 
 
 func Up(quantity int) (err error) {
-	if sqlMigrator == nil {
+	if dbMigrator == nil {
 		return api.ErrNotInitialised
 	}
-	return sqlMigrator.Up(quantity)
+	return dbMigrator.Up(quantity)
 }
 
 
-func (m *SQLMigrator) Up(quantity int) (err error) {
-	return m.domain.Migration.Service.Up(m.ctx, m.ms, quantity)
+func (m *DBMigrator) Up(quantity int) (err error) {
+	err = m.domain.Migration.Service.Up(m.ctx, m.ms, quantity)
+	return api.AppErrorConv(err)
 }
 
 
 func Down(quantity int) (err error) {
-	if sqlMigrator == nil {
+	if dbMigrator == nil {
 		return api.ErrNotInitialised
 	}
-	return sqlMigrator.Down(quantity)
+	return dbMigrator.Down(quantity)
 }
 
 
-func (m *SQLMigrator) Down(quantity int) (err error) {
-	return m.domain.Migration.Service.Down(m.ctx, m.ms, quantity)
+func (m *DBMigrator) Down(quantity int) (err error) {
+	err = m.domain.Migration.Service.Down(m.ctx, m.ms, quantity)
+	return api.AppErrorConv(err)
 }
 
 
 func Redo() (err error) {
-	if sqlMigrator == nil {
+	if dbMigrator == nil {
 		return api.ErrNotInitialised
 	}
-	return sqlMigrator.Redo()
+	return dbMigrator.Redo()
 }
 
 
-func (m *SQLMigrator) Redo() (err error) {
-	return m.domain.Migration.Service.Redo(m.ctx, m.ms)
+func (m *DBMigrator) Redo() (err error) {
+	err = m.domain.Migration.Service.Redo(m.ctx, m.ms)
+	return api.AppErrorConv(err)
 }
 
 
 func Status() ([]migration.MigrationLog, error) {
-	if sqlMigrator == nil {
+	if dbMigrator == nil {
 		return nil, api.ErrNotInitialised
 	}
-	return sqlMigrator.Status()
+	return dbMigrator.Status()
 }
 
 
-func (m *SQLMigrator) Status() ([]migration.MigrationLog, error) {
+func (m *DBMigrator) Status() ([]migration.MigrationLog, error) {
 	list, err := m.domain.Migration.Service.List(m.ctx)
+	err = api.AppErrorConv(err)
 	if err != nil && errors.Is(err, api.ErrNotFound) {
 		err = nil
 	}
@@ -173,15 +177,16 @@ func (m *SQLMigrator) Status() ([]migration.MigrationLog, error) {
 
 
 func DBVersion() (uint, error) {
-	if sqlMigrator == nil {
+	if dbMigrator == nil {
 		return 0, api.ErrNotInitialised
 	}
-	return sqlMigrator.DBVersion()
+	return dbMigrator.DBVersion()
 }
 
 
-func (m *SQLMigrator) DBVersion() (uint, error) {
+func (m *DBMigrator) DBVersion() (uint, error) {
 	lm, err := m.domain.Migration.Service.Last(m.ctx)
+	err = api.AppErrorConv(err)
 	if err != nil {
 		if errors.Is(err, api.ErrNotFound) {
 			return 0, nil
@@ -192,15 +197,32 @@ func (m *SQLMigrator) DBVersion() (uint, error) {
 }
 
 
-func Create(p api.MigrationCreateParams) (err error) {
-	if sqlMigrator == nil {
+func Create(p migration.MigrationCreateParams) (err error) {
+	if dbMigrator == nil {
 		return api.ErrNotInitialised
 	}
-	return sqlMigrator.Create(p)
+	return dbMigrator.Create(p)
 }
 
 
-func (m *SQLMigrator) Create(p api.MigrationCreateParams) (err error) {
-	return m.domain.Migration.Service.Create(m.ctx, m.ms, m.config.Dir, p)
+func (m *DBMigrator) Create(p migration.MigrationCreateParams) (err error) {
+	if err = p.Validate(); err != nil {
+		return errors.Wrapf(err, "Invalid create params")
+	}
+
+	if _, ok := m.ms[p.ID]; ok {
+		return errors.Wrapf(api.ErrBadRequest, "Migration #%v already exists", p.ID)
+	}
+	fileName := fmt.Sprintf("%03d", p.ID) + "_" + p.Name +".go"
+	fileName = filepath.Join(m.config.Dir, fileName)
+
+	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
+	if err != nil {
+		return errors.Wrapf(err, "Error while creating a file")
+	}
+	defer f.Close()
+
+	err = m.domain.Migration.Service.Create(m.ctx, f, p)
+	return api.AppErrorConv(err)
 }
 

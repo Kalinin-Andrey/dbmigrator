@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"database/sql"
-	"github.com/Kalinin-Andrey/dbmigrator/pkg/sqlmigrator/api"
 	"github.com/jmoiron/sqlx"
 	"sort"
 
@@ -11,6 +10,9 @@ import (
 	// pq is the driver for the postgres dialect
 	_ "github.com/lib/pq"
 
+	"github.com/Kalinin-Andrey/dbmigrator/internal/pkg/apperror"
+
+	"github.com/Kalinin-Andrey/dbmigrator/internal/app"
 	"github.com/Kalinin-Andrey/dbmigrator/internal/domain/migration"
 )
 
@@ -19,10 +21,6 @@ type MigrationRepository struct {
 	repository
 }
 
-// MaxLIstLimit const
-const MaxLIstLimit = 1000
-
-
 var _ migration.IRepository = (*MigrationRepository)(nil)
 
 // NewMigrationRepository creates a new Repository
@@ -30,7 +28,7 @@ func NewMigrationRepository(repository *repository) (*MigrationRepository, error
 	return &MigrationRepository{repository: *repository}, nil
 }
 
-func (r MigrationRepository) SetLogger(logger api.Logger) {
+func (r MigrationRepository) SetLogger(logger app.Logger) {
 	r.logger = logger
 }
 
@@ -38,10 +36,10 @@ func (r MigrationRepository) SetLogger(logger api.Logger) {
 func (r MigrationRepository) get(ctx context.Context, tx *sqlx.Tx, id uint) (*migration.MigrationLog, error) {
 	entity := &migration.MigrationLog{}
 
-	err := tx.GetContext(ctx, entity, "SELECT * FROM migration WHERE id = $1", id)
+	err := tx.GetContext(ctx, entity, "SELECT * FROM " + migration.TableName + " WHERE id = $1", id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return entity, api.ErrNotFound
+			return nil, apperror.ErrNotFound
 		}
 	}
 	return entity, err
@@ -55,12 +53,12 @@ func (r MigrationRepository) Query(ctx context.Context, offset, limit uint) ([]m
 		limit = MaxLIstLimit
 	}
 
-	err := r.db.DB().SelectContext(ctx, &items, "SELECT * FROM migration ORDER BY id LIMIT $1 OFFSET $2", limit, offset)
+	err := r.db.DB().SelectContext(ctx, &items, "SELECT * FROM " + migration.TableName + " ORDER BY id LIMIT $1 OFFSET $2", limit, offset)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, api.ErrNotFound
+			return nil, apperror.ErrNotFound
 		}
-		return nil, errors.Wrapf(api.ErrInternal, "MigrationRepository.Query error: %v", err)
+		return nil, errors.Wrapf(apperror.ErrInternal, "MigrationRepository.Query error: %v", err)
 	}
 	return items, nil
 }
@@ -72,7 +70,7 @@ func (r MigrationRepository) QueryTx(ctx context.Context, t migration.Transactio
 
 	tx, ok := t.(*sqlx.Tx)
 	if !ok {
-		return items, errors.New("can not assert param t migration.Transaction to *sqlx.Tx")
+		return nil, errors.New("can not assert param t migration.Transaction to *sqlx.Tx")
 	}
 
 	if limit < 1 {
@@ -85,10 +83,10 @@ func (r MigrationRepository) QueryTx(ctx context.Context, t migration.Transactio
 		params = append(params, query.Where.Status)
 	}
 
-	err := tx.SelectContext(ctx, &items, "SELECT * FROM migration" + where + " LIMIT $1 OFFSET $2", params...)
+	err := tx.SelectContext(ctx, &items, "SELECT * FROM " + migration.TableName + where + " LIMIT $1 OFFSET $2", params...)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return items, api.ErrNotFound
+			return nil, apperror.ErrNotFound
 		}
 	}
 	return items, err
@@ -97,8 +95,7 @@ func (r MigrationRepository) QueryTx(ctx context.Context, t migration.Transactio
 // Last retrieves a last record with the specified query condition and limit 1 from the database.
 func (r MigrationRepository) Last(ctx context.Context, query *migration.QueryCondition) (*migration.MigrationLog, error) {
 	var where string
-
-	params := []interface{}{}
+	var params []interface{}
 
 	if query != nil && query.Where != nil {
 		where = " WHERE status = $1 "
@@ -106,10 +103,10 @@ func (r MigrationRepository) Last(ctx context.Context, query *migration.QueryCon
 	}
 	entity := &migration.MigrationLog{}
 
-	err := r.db.DB().GetContext(ctx, entity, "SELECT * FROM migration" + where + " ORDER BY id DESC LIMIT 1", params...)
+	err := r.db.DB().GetContext(ctx, entity, "SELECT * FROM " + migration.TableName + where + " ORDER BY id DESC LIMIT 1", params...)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, api.ErrNotFound
+			return nil, apperror.ErrNotFound
 		}
 	}
 	return entity, nil
@@ -132,10 +129,10 @@ func (r MigrationRepository) LastTx(ctx context.Context, t migration.Transaction
 	}
 	entity := &migration.MigrationLog{}
 
-	err := tx.GetContext(ctx, entity, "SELECT * FROM migration" + where + " ORDER BY id DESC LIMIT 1", params...)
+	err := tx.GetContext(ctx, entity, "SELECT * FROM " + migration.TableName + where + " ORDER BY id DESC LIMIT 1", params...)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, api.ErrNotFound
+			return nil, apperror.ErrNotFound
 		}
 	}
 	return entity, nil
@@ -156,7 +153,7 @@ func (r MigrationRepository) BatchCreateTx(ctx context.Context, t migration.Tran
 		item := list[id]
 		err := r.create(ctx, tx, &item)
 		if err != nil {
-			return errors.Wrapf(api.ErrInternal, "error while creating log of migration #%v", id)
+			return errors.Wrapf(apperror.ErrInternal, "error while creating log of migration #%v", id)
 		}
 		list[id] = item
 	}
@@ -179,7 +176,7 @@ func (r MigrationRepository) BatchUpdateTx(ctx context.Context, t migration.Tran
 		item := list[id]
 		err := r.update(ctx, tx, &item)
 		if err != nil {
-			return errors.Wrapf(api.ErrInternal, "error while updating log of migration #%v", id)
+			return errors.Wrapf(apperror.ErrInternal, "error while updating log of migration #%v", id)
 		}
 		list[id] = item
 	}
@@ -190,7 +187,10 @@ func (r MigrationRepository) BatchUpdateTx(ctx context.Context, t migration.Tran
 func (r MigrationRepository) create(ctx context.Context, tx *sqlx.Tx, entity *migration.MigrationLog) error {
 	var lastInsertID uint
 
-	err := tx.QueryRowContext(ctx, "INSERT INTO migration (id, status, \"name\", \"time\") VALUES ($1, $2, $3, Now()) RETURNING id", entity.ID, entity.Status, entity.Name).Scan(&lastInsertID)
+	err := tx.QueryRowContext(ctx, `
+			INSERT INTO migration (id, status, "name", "time") 
+			VALUES ($1, $2, $3, Now()) RETURNING id
+		`, entity.ID, entity.Status, entity.Name).Scan(&lastInsertID)
 	if err != nil {
 		return errors.Wrapf(err, "MigrationRepository: error inserting entity %v", entity)
 	}
@@ -207,7 +207,11 @@ func (r MigrationRepository) create(ctx context.Context, tx *sqlx.Tx, entity *mi
 // update recoprd of entity in db
 func (r MigrationRepository) update(ctx context.Context, tx *sqlx.Tx, entity *migration.MigrationLog) error {
 
-	_, err := tx.ExecContext(ctx, "UPDATE migration SET status = $1, \"name\" = $2, \"time\" = Now() WHERE id = $3", entity.Status, entity.Name, entity.ID)
+	_, err := tx.ExecContext(ctx, `
+			UPDATE migration 
+			SET status = $1, "name" = $2, "time" = Now() 
+			WHERE id = $3
+		`, entity.Status, entity.Name, entity.ID)
 	if err != nil {
 		return errors.Wrapf(err, "MigrationRepository: error updating entity %v", entity)
 	}
@@ -244,9 +248,10 @@ func (r MigrationRepository) ExecSQL(ctx context.Context, sql string) error {
 
 	_, err = tx.ExecContext(ctx, sql)
 	if err != nil {
-		er := errors.Wrapf(api.ErrUsersSQL, "MigrationRepository.ExecSQL error: %v", err)
+		er := errors.Wrapf(apperror.ErrUsersSQL, "MigrationRepository.ExecSQL error: %v", err)
 		err = tx.Rollback()
 		if err != nil {
+			r.logger.Print(er)
 			return errors.Wrapf(err, "MigrationRepository.ExecSQL tx.Rollback() error")
 		}
 		return er
@@ -260,7 +265,7 @@ func (r MigrationRepository) ExecSQL(ctx context.Context, sql string) error {
 }
 
 
-func (r MigrationRepository) ExecFunc(ctx context.Context, f api.MigrationFunc) (returnErr error) {
+func (r MigrationRepository) ExecFunc(ctx context.Context, f migration.MigrationFunc) (returnErr error) {
 	tx, err := r.db.DB().BeginTxx(ctx, nil)
 	if err != nil {
 		return errors.Wrapf(err, "MigrationRepository.ExecFunc: transaction begin error")
@@ -268,7 +273,7 @@ func (r MigrationRepository) ExecFunc(ctx context.Context, f api.MigrationFunc) 
 
 	defer func() {
 		if err := recover(); err != nil {
-			returnErr = errors.Wrapf(api.ErrUsersFunc, "MigrationRepository.ExecFunc error: %v", err)
+			returnErr = errors.Wrapf(apperror.ErrUsersFunc, "MigrationRepository.ExecFunc error: %v", err)
 			err = tx.Rollback()
 			if err != nil {
 				returnErr = errors.Errorf("MigrationRepository.ExecFunc: transaction rollback error: %v", err)
@@ -278,7 +283,7 @@ func (r MigrationRepository) ExecFunc(ctx context.Context, f api.MigrationFunc) 
 
 	err = f(tx)
 	if err != nil {
-		er := errors.Wrapf(api.ErrUsersFunc, "MigrationRepository.ExecFunc error: %v", err)
+		er := errors.Wrapf(apperror.ErrUsersFunc, "MigrationRepository.ExecFunc error: %v", err)
 		err = tx.Rollback()
 		if err != nil {
 			return errors.Wrapf(err, "MigrationRepository.ExecFunc tx.Rollback() error")
@@ -302,14 +307,14 @@ func (r MigrationRepository) ExecSQLTx(ctx context.Context, t migration.Transact
 
 	_, err := tx.ExecContext(ctx, sql)
 	if err != nil {
-		return errors.Wrapf(api.ErrUsersSQL, "MigrationRepository.ExecSQL error: %v", err)
+		return errors.Wrapf(apperror.ErrUsersSQL, "MigrationRepository.ExecSQL error: %v", err)
 	}
 
 	return nil
 }
 
 
-func (r MigrationRepository) ExecFuncTx(ctx context.Context, t migration.Transaction, f api.MigrationFunc) (returnErr error) {
+func (r MigrationRepository) ExecFuncTx(ctx context.Context, t migration.Transaction, f migration.MigrationFunc) (returnErr error) {
 	tx, ok := t.(*sqlx.Tx)
 	if !ok {
 		return errors.New("can not assert param t migration.Transaction to *sqlx.Tx")
@@ -317,13 +322,13 @@ func (r MigrationRepository) ExecFuncTx(ctx context.Context, t migration.Transac
 
 	defer func() {
 		if err := recover(); err != nil {
-			returnErr = errors.Wrapf(api.ErrUsersFunc, "MigrationRepository.ExecFunc error: %v", err)
+			returnErr = errors.Wrapf(apperror.ErrUsersFunc, "MigrationRepository.ExecFunc error: %v", err)
 		}
 	}()
 
 	err := f(tx)
 	if err != nil {
-		return errors.Wrapf(api.ErrUsersFunc, "MigrationRepository.ExecFunc error: %v", err)
+		return errors.Wrapf(apperror.ErrUsersFunc, "MigrationRepository.ExecFunc error: %v", err)
 	}
 
 	return nil

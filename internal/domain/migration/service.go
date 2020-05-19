@@ -2,14 +2,15 @@ package migration
 
 import (
 	"context"
-	"fmt"
-	"github.com/Kalinin-Andrey/dbmigrator/pkg/sqlmigrator/api"
-	"os"
-	"path/filepath"
+	"io"
 	"sort"
 	"text/template"
 
 	"github.com/pkg/errors"
+
+	"github.com/Kalinin-Andrey/dbmigrator/internal/pkg/apperror"
+
+	"github.com/Kalinin-Andrey/dbmigrator/internal/app"
 )
 
 // IService encapsulates usecase logic for event.
@@ -33,19 +34,19 @@ type IService interface {
 	// CreateTable creates table for migration
 	CreateTable(ctx context.Context) error
 	// Up migration
-	Up(ctx context.Context, ms api.MigrationsList, quantity int) error
+	Up(ctx context.Context, ms MigrationsList, quantity int) error
 	// Down migration
-	Down(ctx context.Context, ms api.MigrationsList, quantity int) error
+	Down(ctx context.Context, ms MigrationsList, quantity int) error
 	// Redo a last migration
-	Redo(ctx context.Context, ms api.MigrationsList) error
+	Redo(ctx context.Context, ms MigrationsList) error
 	Last(ctx context.Context) (*MigrationLog, error)
-	Create(ctx context.Context, ms api.MigrationsList, dir string, p api.MigrationCreateParams) (err error)
+	Create(ctx context.Context, wr io.Writer, p MigrationCreateParams) (err error)
 }
 
 type service struct {
 	//Domain     Domain
 	repo   IRepository
-	logger api.Logger
+	logger app.Logger
 }
 
 const(
@@ -53,7 +54,7 @@ const(
 )
 
 // NewService creates a new service.
-func NewService(repo IRepository, logger api.Logger) IService {
+func NewService(repo IRepository, logger app.Logger) IService {
 	s := &service{repo, logger}
 	return s
 }
@@ -67,7 +68,7 @@ func (s service) NewEntity() *MigrationLog {
 /*func (s service) Get(ctx context.Context, id uint) (*MigrationLog, error) {
 	entity, err := s.repo.Get(ctx, id)
 	if err != nil {
-		if err == api.ErrNotFound {
+		if err == apperror.ErrNotFound {
 			return nil, err
 		}
 		return nil, errors.Wrapf(err, "Can not get a event by id: %v", id)
@@ -79,7 +80,7 @@ func (s service) NewEntity() *MigrationLog {
 func (s service) Query(ctx context.Context, offset, limit uint) ([]MigrationLog, error) {
 	items, err := s.repo.Query(ctx, offset, limit)
 	if err != nil {
-		if errors.Is(err, api.ErrNotFound) {
+		if errors.Is(err, apperror.ErrNotFound) {
 			return nil, err
 		}
 		return nil, errors.Wrapf(err, "error has occurred")
@@ -92,7 +93,7 @@ func (s service) Query(ctx context.Context, offset, limit uint) ([]MigrationLog,
 func (s service) List(ctx context.Context) ([]MigrationLog, error) {
 	items, err := s.repo.Query(ctx, 0, 0)
 	if err != nil {
-		if errors.Is(err, api.ErrNotFound) {
+		if errors.Is(err, apperror.ErrNotFound) {
 			return nil, err
 		}
 		return nil, errors.Wrapf(err, "error has occurred")
@@ -128,16 +129,16 @@ func (s service) Last(ctx context.Context) (*MigrationLog, error) {
 	})
 
 	if err != nil {
-		if errors.Is(err, api.ErrNotFound) {
+		if errors.Is(err, apperror.ErrNotFound) {
 			return nil, err
 		}
-		return nil, errors.Wrapf(api.ErrInternal, "migration.Service.Last error: %v", err)
+		return nil, errors.Wrapf(apperror.ErrInternal, "migration.Service.Last error: %v", err)
 	}
 	return mLog, nil
 }
 
 // Up list of migrations
-func (s service) Up(ctx context.Context, ms api.MigrationsList, quantity int) error {
+func (s service) Up(ctx context.Context, ms MigrationsList, quantity int) error {
 	t, err := s.repo.BeginTx(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "migration.Service.Up: transaction begin error")
@@ -145,7 +146,7 @@ func (s service) Up(ctx context.Context, ms api.MigrationsList, quantity int) er
 
 	list, err := s.repo.QueryTx(ctx, t, nil, 0, 0)
 	if err != nil {
-		return errors.Wrapf(api.ErrInternal, "migration.Service.Down: get list logs of migrations error: %v", err)
+		return errors.Wrapf(apperror.ErrInternal, "migration.Service.Down: get list logs of migrations error: %v", err)
 	}
 
 	gl			:= GroupLogsByStatus(list)
@@ -167,7 +168,7 @@ func (s service) Up(ctx context.Context, ms api.MigrationsList, quantity int) er
 			mLog.Status = StatusError
 			migrationsLogsForUpdate[idErr] = mLog
 		} else {
-			mLog = *NewMigrationLog(migrations[idErr], StatusError)
+			mLog = *migrations[idErr].Log(StatusError)
 			migrationsLogsForCreate[idErr] = mLog
 		}
 	}
@@ -198,7 +199,7 @@ func (s service) Up(ctx context.Context, ms api.MigrationsList, quantity int) er
 }
 
 // Down list of migrations
-func (s service) Down(ctx context.Context, ms api.MigrationsList, quantity int) error {
+func (s service) Down(ctx context.Context, ms MigrationsList, quantity int) error {
 	t, err := s.repo.BeginTx(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "migration.Service.Down: transaction begin error")
@@ -206,7 +207,7 @@ func (s service) Down(ctx context.Context, ms api.MigrationsList, quantity int) 
 
 	list, err := s.repo.QueryTx(ctx, t, nil, 0, 0)
 	if err != nil {
-		return errors.Wrapf(api.ErrInternal, "migration.Service.Down: get list logs of migrations error: %v", err)
+		return errors.Wrapf(apperror.ErrInternal, "migration.Service.Down: get list logs of migrations error: %v", err)
 	}
 
 	gl			:= GroupLogsByStatus(list)
@@ -238,7 +239,7 @@ func (s service) Down(ctx context.Context, ms api.MigrationsList, quantity int) 
 }
 
 // Redo a last migration
-func (s service) Redo(ctx context.Context, ms api.MigrationsList) error {
+func (s service) Redo(ctx context.Context, ms MigrationsList) error {
 	t, err := s.repo.BeginTx(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "migration.Service.Redo: transaction begin error")
@@ -250,15 +251,15 @@ func (s service) Redo(ctx context.Context, ms api.MigrationsList) error {
 		},
 	})
 	if err != nil {
-		if errors.Is(err, api.ErrNotFound) {
+		if errors.Is(err, apperror.ErrNotFound) {
 			return err
 		}
-		return errors.Wrapf(api.ErrInternal, "migration.Service.Redo: get last migration error: %v", err)
+		return errors.Wrapf(apperror.ErrInternal, "migration.Service.Redo: get last migration error: %v", err)
 	}
 
 	m, ok := ms[mLog.ID]
 	if !ok {
-		return errors.Wrapf(api.ErrNotFound, "migration.Service.Redo: can not find last migration #%v", mLog.ID)
+		return errors.Wrapf(apperror.ErrNotFound, "migration.Service.Redo: can not find last migration #%v", mLog.ID)
 	}
 
 	err = s.actionExecTx(ctx, t, m.Down)
@@ -292,7 +293,7 @@ func (s service) Redo(ctx context.Context, ms api.MigrationsList) error {
 }
 
 
-func (s service) upProceed(ctx context.Context, ms api.MigrationsList, ids []int) (appliedMigrationsLogs MigrationsLogsList, idErr uint, err error) {
+func (s service) upProceed(ctx context.Context, ms MigrationsList, ids []int) (appliedMigrationsLogs MigrationsLogsList, idErr uint, err error) {
 	appliedMigrationsLogs = make(MigrationsLogsList, len(ids))
 
 	for _, i := range ids {
@@ -303,13 +304,13 @@ func (s service) upProceed(ctx context.Context, ms api.MigrationsList, ids []int
 			return appliedMigrationsLogs, id, errors.Wrapf(err, "up error on migration #%v", id)
 		}
 		s.logger.Print("up #", id, " - done")
-		appliedMigrationsLogs[id] = *NewMigrationLog(ms[id], StatusApplied)
+		appliedMigrationsLogs[id] = *ms[id].Log(StatusApplied)
 	}
 	return appliedMigrationsLogs, 0, nil
 }
 
 
-func (s service) downProceed(ctx context.Context, ms api.MigrationsList, ids []int) (downMigrationsLogs MigrationsLogsList, idErr uint, err error) {
+func (s service) downProceed(ctx context.Context, ms MigrationsList, ids []int) (downMigrationsLogs MigrationsLogsList, idErr uint, err error) {
 	downMigrationsLogs = make(MigrationsLogsList, len(ids))
 
 	for _, i := range ids {
@@ -320,7 +321,7 @@ func (s service) downProceed(ctx context.Context, ms api.MigrationsList, ids []i
 			return downMigrationsLogs, id, errors.Wrapf(err, "up error on migration #%v", id)
 		}
 		s.logger.Print("down #", id, " - done")
-		downMigrationsLogs[id] = *NewMigrationLog(ms[id], StatusNotApplied)
+		downMigrationsLogs[id] = *ms[id].Log(StatusNotApplied)
 	}
 	return downMigrationsLogs, 0, nil
 }
@@ -332,10 +333,10 @@ func (s service) actionExec(ctx context.Context, in interface{}) (err error) {
 	switch i := in.(type) {
 	case string:
 		err = s.repo.ExecSQL(ctx, i)
-	case api.MigrationFunc:
+	case MigrationFunc:
 		err = s.repo.ExecFunc(ctx, i)
 	default:
-		err = api.ErrUndefinedTypeOfAction
+		err = apperror.ErrUndefinedTypeOfAction
 	}
 
 	return err
@@ -347,33 +348,21 @@ func (s service) actionExecTx(ctx context.Context, t Transaction, in interface{}
 	switch i := in.(type) {
 	case string:
 		err = s.repo.ExecSQLTx(ctx, t, i)
-	case api.MigrationFunc:
+	case MigrationFunc:
 		err = s.repo.ExecFuncTx(ctx, t, i)
 	default:
-		err = api.ErrUndefinedTypeOfAction
+		err = apperror.ErrUndefinedTypeOfAction
 	}
 
 	return err
 }
 
-func (s service) Create(ctx context.Context, ms api.MigrationsList, dir string, p api.MigrationCreateParams) (err error) {
+func (s service) Create(ctx context.Context, wr io.Writer, p MigrationCreateParams) (err error) {
 	if err = p.Validate(); err != nil {
 		return errors.Wrapf(err, "Invalid create params")
 	}
 
-	if _, ok := ms[p.ID]; ok {
-		return errors.Wrapf(api.ErrBadRequest, "Migration #%v already exists", p.ID)
-	}
-	fileName := fmt.Sprintf("%03d", p.ID) + "_" + p.Name +".go"
-	fileName = filepath.Join(dir, fileName)
-
-	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
-	if err != nil {
-		return errors.Wrapf(err, "Error while creating a file")
-	}
-	defer f.Close()
-
-	return getTemplate().ExecuteTemplate(f, "tpl", p)
+	return getTemplate().ExecuteTemplate(wr, "tpl", p)
 }
 
 func getTemplate() (*template.Template) {

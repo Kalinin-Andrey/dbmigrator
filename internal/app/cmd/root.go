@@ -1,18 +1,3 @@
-/*
-Copyright © 2020 NAME HERE <EMAIL ADDRESS>
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
 package cmd
 
 import (
@@ -24,8 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/Kalinin-Andrey/dbmigrator/pkg/sqlmigrator"
-	"github.com/Kalinin-Andrey/dbmigrator/pkg/sqlmigrator/api"
+	"github.com/Kalinin-Andrey/dbmigrator/pkg/dbmigrator"
+	"github.com/Kalinin-Andrey/dbmigrator/pkg/dbmigrator/api"
 
 	_ "github.com/Kalinin-Andrey/dbmigrator/migration"
 )
@@ -33,19 +18,10 @@ import (
 var cfgFile, logFile, dsn, dir string
 var ctx context.Context
 
-// rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "dbmigrator",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	//	Run: func(cmd *cobra.Command, args []string) { },
+	Short: "Go database migration tool and library supporting SQL or Go scripts.",
+	Long: `Go database migration tool and library supporting SQL or Go scripts.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -61,10 +37,6 @@ func Execute(c context.Context) {
 
 func init() {
 	cobra.OnInitialize(initSQLMigrator)
-
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.dbmigrator.yaml)")
 	rootCmd.PersistentFlags().StringVar(&logFile, "log", "", "log file (default is stdout)")
@@ -87,9 +59,6 @@ func init() {
 		os.Exit(1)
 	}
 
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 
@@ -128,7 +97,7 @@ func initSQLMigrator() {
 	}
 	config.ExpandEnv()
 
-	err = sqlmigrator.Init(ctx, config, nil)
+	err = dbmigrator.Init(ctx, config, nil)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

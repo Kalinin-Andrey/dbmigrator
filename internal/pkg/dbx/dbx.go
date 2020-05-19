@@ -2,7 +2,6 @@ package dbx
 
 import (
 	"fmt"
-	"github.com/Kalinin-Andrey/dbmigrator/pkg/sqlmigrator/api"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -10,7 +9,12 @@ import (
 	_ "github.com/lib/pq"
 )
 
-const ConnectionTimeout = time.Duration(30 * time.Second)
+
+type Configuration struct {
+	DSN		string
+	Dir		string
+	Dialect	string
+}
 
 // DBx is the interface for a DB connection
 type DBx interface {
@@ -34,14 +38,14 @@ func (db *DB) Close() error {
 
 var _ DBx = (*DB)(nil)
 
-var defaultTimeout time.Duration = 10 * time.Second
+var defaultTimeout = 10 * time.Second
 
 // New creates a new DB connection
-func New(conf api.Configuration, timeout *time.Duration) (*DB, error) {
+func New(conf Configuration, timeout *time.Duration) (*DB, error) {
 	if timeout == nil {
 		timeout = &defaultTimeout
 	}
-	db, err := ConnectLoop(conf.Dialect, conf.DSN, *timeout)
+	db, err := connectLoop(conf.Dialect, conf.DSN, *timeout)
 
 	if err != nil {
 		return nil, err
@@ -52,8 +56,8 @@ func New(conf api.Configuration, timeout *time.Duration) (*DB, error) {
 	return dbobj, nil
 }
 
-// ConnectLoop is the func for connection in a loop with timeout
-func ConnectLoop(dialect string, dsn string, timeout time.Duration) (*sqlx.DB, error) {
+// connectLoop is the func for connection in a loop with timeout
+func connectLoop(dialect string, dsn string, timeout time.Duration) (*sqlx.DB, error) {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 

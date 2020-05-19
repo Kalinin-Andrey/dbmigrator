@@ -2,12 +2,13 @@ package migration
 
 import (
 	"context"
-	"github.com/Kalinin-Andrey/dbmigrator/pkg/sqlmigrator/api"
+
+	"github.com/Kalinin-Andrey/dbmigrator/internal/app"
 )
 
 // IRepository encapsulates the logic to access albums from the data source.
 type IRepository interface {
-	SetLogger(logger api.Logger)
+	SetLogger(logger app.Logger)
 	// Get returns an entity with the specified ID.
 	//Get(ctx context.Context, id uint) (*MigrationLog, error)
 	// Count returns the number of entities.
@@ -31,9 +32,9 @@ type IRepository interface {
 	// ExecSQLTx executes an user's plain sql
 	ExecSQLTx(ctx context.Context, t Transaction, sql string) error
 	// ExecFunc executes an user's func
-	ExecFunc(ctx context.Context, f api.MigrationFunc) (err error)
+	ExecFunc(ctx context.Context, f MigrationFunc) (err error)
 	// ExecFuncTx executes an user's func
-	ExecFuncTx(ctx context.Context, t Transaction, f api.MigrationFunc) (err error)
+	ExecFuncTx(ctx context.Context, t Transaction, f MigrationFunc) (err error)
 	// BeginTx begins a transaction
 	BeginTx(ctx context.Context) (Transaction, error)
 	BatchCreateTx(ctx context.Context, t Transaction, list MigrationsLogsList) error

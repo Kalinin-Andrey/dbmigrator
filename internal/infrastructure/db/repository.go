@@ -1,31 +1,36 @@
 package db
 
 import (
-	"github.com/Kalinin-Andrey/dbmigrator/pkg/sqlmigrator/api"
-	"github.com/pkg/errors"
+	"context"
 	"log"
 	"os"
 
+	"github.com/pkg/errors"
+
 	"github.com/Kalinin-Andrey/dbmigrator/internal/pkg/dbx"
 
+	"github.com/Kalinin-Andrey/dbmigrator/internal/app"
 	"github.com/Kalinin-Andrey/dbmigrator/internal/domain/migration"
 )
 
 // IRepository is an interface of repository
-type IRepository interface {}
+type IRepository interface {
+	SetLogger(logger app.Logger)
+	Query(ctx context.Context, offset, limit uint) ([]migration.MigrationLog, error)
+}
 
 // repository persists albums in database
 type repository struct {
 	db                dbx.DBx
-	logger            api.Logger
+	logger            app.Logger
 	//defaultConditions map[string]interface{}
 }
 
-// Limit is default limit
-const Limit = 100
+// MaxLIstLimit const
+const MaxLIstLimit = 1000
 
 // GetRepository return a repository
-func GetRepository(dbase dbx.DBx, logger api.Logger, entity string) (repo IRepository, err error) {
+func GetRepository(dbase dbx.DBx, logger app.Logger, entity string) (repo IRepository, err error) {
 	if logger == nil {
 		logger = log.New(os.Stdout, "sqlmigrator", log.LstdFlags)
 	}
