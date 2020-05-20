@@ -188,7 +188,7 @@ func (r MigrationRepository) create(ctx context.Context, tx *sqlx.Tx, entity *mi
 	var lastInsertID uint
 
 	err := tx.QueryRowContext(ctx, `
-			INSERT INTO migration (id, status, "name", "time") 
+			INSERT INTO ` + migration.TableName + ` (id, status, "name", "time") 
 			VALUES ($1, $2, $3, Now()) RETURNING id
 		`, entity.ID, entity.Status, entity.Name).Scan(&lastInsertID)
 	if err != nil {
@@ -208,7 +208,7 @@ func (r MigrationRepository) create(ctx context.Context, tx *sqlx.Tx, entity *mi
 func (r MigrationRepository) update(ctx context.Context, tx *sqlx.Tx, entity *migration.MigrationLog) error {
 
 	_, err := tx.ExecContext(ctx, `
-			UPDATE migration 
+			UPDATE ` + migration.TableName + ` 
 			SET status = $1, "name" = $2, "time" = Now() 
 			WHERE id = $3
 		`, entity.Status, entity.Name, entity.ID)
