@@ -5,7 +5,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-var MigrationsList *migration.MigrationsList = &migration.MigrationsList{
+var MigrationsList = &migration.MigrationsList{
 	1: migration.Migration{
 		ID:   1,
 		Name: "first_migration",

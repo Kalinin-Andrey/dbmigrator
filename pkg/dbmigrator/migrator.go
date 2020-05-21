@@ -2,13 +2,16 @@ package dbmigrator
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"github.com/Kalinin-Andrey/dbmigrator/internal/pkg/dbx"
-	"github.com/Kalinin-Andrey/dbmigrator/pkg/dbmigrator/api"
 	"github.com/pkg/errors"
 	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/Kalinin-Andrey/dbmigrator/pkg/dbmigrator/api"
+
+	"github.com/Kalinin-Andrey/dbmigrator/internal/pkg/dbx"
 
 	"github.com/Kalinin-Andrey/dbmigrator/internal/domain/migration"
 	dbrep "github.com/Kalinin-Andrey/dbmigrator/internal/infrastructure/db"
@@ -40,8 +43,17 @@ type Domain struct {
 var dbMigrator *DBMigrator
 
 
+func M(i api.Migration) error {
+	b, err := json.Marshal(i)
+	if err != nil {
+		return err
+	}
+	fmt.Print(string(b))
+	return nil
+}
+
 func Add(i api.Migration) {
-	item := i.DomainMigration()
+	item := i.CoreMigration()
 
 	if _, ok := ms[item.ID]; ok {
 		errs = append(errs, errors.Wrapf(api.ErrDuplicate, "Duplicate migration ID: %v", item.ID))
@@ -62,6 +74,12 @@ func Init(ctx context.Context, config api.Configuration, logger api.Logger) erro
 	if len(errs) > 0 {
 		return errors.Errorf("DBMigrator.Init errors: \n%v", errs)
 	}
+
+	/*sm, err := gomigration.DirExec(config.Dir)
+	if err != nil {
+		return errors.Wrapf(err, "Error while parsing migrations dir %q", config.Dir)
+	}
+	fmt.Sprintf("%v", sm)*/
 
 	if dbMigrator == nil {
 

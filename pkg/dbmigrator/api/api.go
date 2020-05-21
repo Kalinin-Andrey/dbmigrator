@@ -60,7 +60,7 @@ type Migration struct {
 	Down	interface{}
 }
 
-func (m Migration) DomainMigration() *migration.Migration {
+func (m Migration) CoreMigration() *migration.Migration {
 	var up, down interface{}
 	up		= m.Up
 	down	= m.Down

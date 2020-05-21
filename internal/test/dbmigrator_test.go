@@ -171,7 +171,7 @@ func TestCreateSQL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("test.getSQLMigrator() error: %v", err)
 	}
-	p := migration.MigrationCreateParams{
+	p := api.MigrationCreateParams{
 		ID:   8,
 		Type: "sql",
 		Name: "test_sql",
@@ -209,7 +209,7 @@ func TestCreateGo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("test.getSQLMigrator() error: %v", err)
 	}
-	p := migration.MigrationCreateParams{
+	p := api.MigrationCreateParams{
 		ID:   9,
 		Type: "go",
 		Name: "test_go",

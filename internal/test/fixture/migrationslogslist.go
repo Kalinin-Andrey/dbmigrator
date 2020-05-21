@@ -6,7 +6,7 @@ import (
 	"github.com/Kalinin-Andrey/dbmigrator/internal/domain/migration"
 )
 
-var MigrationsLogsList *migration.MigrationsLogsList = &migration.MigrationsLogsList{
+var MigrationsLogsList = &migration.MigrationsLogsList{
 	1:	migration.MigrationLog{
 			ID:     1,
 			Status: migration.StatusApplied,
