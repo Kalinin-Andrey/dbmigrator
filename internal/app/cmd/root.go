@@ -12,7 +12,7 @@ import (
 	"github.com/Kalinin-Andrey/dbmigrator/pkg/dbmigrator"
 	"github.com/Kalinin-Andrey/dbmigrator/pkg/dbmigrator/api"
 
-	_ "github.com/Kalinin-Andrey/dbmigrator/migration"
+	//_ "github.com/Kalinin-Andrey/dbmigrator/migration"
 )
 
 var cfgFile, logFile, dsn, dir string
@@ -97,7 +97,8 @@ func initSQLMigrator() {
 	}
 	config.ExpandEnv()
 
-	err = dbmigrator.Init(ctx, config, nil)
+	//err = dbmigrator.Init(ctx, config, nil)
+	err = dbmigrator.InitTool(ctx, config, nil)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

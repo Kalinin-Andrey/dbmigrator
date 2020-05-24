@@ -2,7 +2,6 @@ package dbmigrator
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
 	"log"
@@ -15,11 +14,23 @@ import (
 
 	"github.com/Kalinin-Andrey/dbmigrator/internal/domain/migration"
 	dbrep "github.com/Kalinin-Andrey/dbmigrator/internal/infrastructure/db"
+	"github.com/Kalinin-Andrey/dbmigrator/internal/infrastructure/gomigration"
 )
 
-const Dialect string = "postgres"
+// Dialect of supported database management system
+const Dialect string	= "postgres"
 
+// IDBMigrator is the interface for DBMigrator
+type IDBMigrator interface {
+	Up(quantity int) (err error)
+	Down(quantity int) (err error)
+	Redo() (err error)
+	Status() ([]migration.Log, error)
+	DBVersion() (uint, error)
+	Create(p api.MigrationCreateParams) (err error)
+}
 
+// DBMigrator struct
 type DBMigrator struct {
 	ctx		context.Context
 	config	api.Configuration
@@ -40,18 +51,9 @@ type Domain struct {
 	}
 }
 
-var dbMigrator *DBMigrator
+var dbMigrator IDBMigrator
 
-
-func M(i api.Migration) error {
-	b, err := json.Marshal(i)
-	if err != nil {
-		return err
-	}
-	fmt.Print(string(b))
-	return nil
-}
-
+// Add method adds a migration to the DBMigrator
 func Add(i api.Migration) {
 	item := i.CoreMigration()
 
@@ -68,21 +70,21 @@ func Add(i api.Migration) {
 	ms[item.ID] = *item
 }
 
-
 // Init initialises DBMigrator instance
 func Init(ctx context.Context, config api.Configuration, logger api.Logger) error {
 	if len(errs) > 0 {
 		return errors.Errorf("DBMigrator.Init errors: \n%v", errs)
 	}
 
-	/*sm, err := gomigration.DirExec(config.Dir)
-	if err != nil {
-		return errors.Wrapf(err, "Error while parsing migrations dir %q", config.Dir)
-	}
-	fmt.Sprintf("%v", sm)*/
-
 	if dbMigrator == nil {
+		dir := gomigration.Dir{Path: config.Dir}
+		if err := dir.Validate(); err != nil {
+			return err
+		}
 
+		if config.Dialect == "" {
+			config.Dialect = Dialect
+		}
 
 		dbx, err := dbx.New(*config.DBxConf(), nil)
 		if err != nil {
@@ -99,7 +101,7 @@ func Init(ctx context.Context, config api.Configuration, logger api.Logger) erro
 			return errors.Errorf("Can not cast DB repository for entity %q to %v.IRepository. Repo: %v", migration.TableName, migration.TableName, rep)
 		}
 
-		dbMigrator, err = NewSQLMigrator(ctx, config, logger, repository, ms)
+		dbMigrator, err = NewDBMigrator(ctx, config, logger, repository, ms)
 		if err != nil {
 			return err
 		}
@@ -108,9 +110,12 @@ func Init(ctx context.Context, config api.Configuration, logger api.Logger) erro
 	return nil
 }
 
+// NewDBMigrator returns a new instance of DBMigrator
+func NewDBMigrator(ctx context.Context, config api.Configuration, logger api.Logger, repository migration.IRepository, ms migration.MigrationsList) (*DBMigrator, error) {
+	if config.Dialect == "" {
+		config.Dialect = Dialect
+	}
 
-func NewSQLMigrator(ctx context.Context, config api.Configuration, logger api.Logger, repository migration.IRepository, ms migration.MigrationsList) (*DBMigrator, error) {
-	config.Dialect = Dialect
 	if logger == nil {
 		logger = log.New(os.Stdout, "sqlmigrator", log.LstdFlags)
 	}
@@ -134,7 +139,7 @@ func NewSQLMigrator(ctx context.Context, config api.Configuration, logger api.Lo
 	}, nil
 }
 
-
+// Up migration
 func Up(quantity int) (err error) {
 	if dbMigrator == nil {
 		return api.ErrNotInitialised
@@ -142,13 +147,13 @@ func Up(quantity int) (err error) {
 	return dbMigrator.Up(quantity)
 }
 
-
+// Up migration
 func (m *DBMigrator) Up(quantity int) (err error) {
 	err = m.domain.Migration.Service.Up(m.ctx, m.ms, quantity)
 	return api.AppErrorConv(err)
 }
 
-
+// Down migration
 func Down(quantity int) (err error) {
 	if dbMigrator == nil {
 		return api.ErrNotInitialised
@@ -156,13 +161,13 @@ func Down(quantity int) (err error) {
 	return dbMigrator.Down(quantity)
 }
 
-
+// Down migration
 func (m *DBMigrator) Down(quantity int) (err error) {
 	err = m.domain.Migration.Service.Down(m.ctx, m.ms, quantity)
 	return api.AppErrorConv(err)
 }
 
-
+// Redo a one last migration
 func Redo() (err error) {
 	if dbMigrator == nil {
 		return api.ErrNotInitialised
@@ -170,22 +175,23 @@ func Redo() (err error) {
 	return dbMigrator.Redo()
 }
 
-
+// Redo a one last migration
 func (m *DBMigrator) Redo() (err error) {
 	err = m.domain.Migration.Service.Redo(m.ctx, m.ms)
 	return api.AppErrorConv(err)
 }
 
-
-func Status() ([]migration.MigrationLog, error) {
+// Status returns slice of logs of migrations
+func Status() ([]migration.Log, error) {
 	if dbMigrator == nil {
 		return nil, api.ErrNotInitialised
 	}
-	return dbMigrator.Status()
+	logs, err := dbMigrator.Status()
+	return logs, api.AppErrorConv(err)
 }
 
-
-func (m *DBMigrator) Status() ([]migration.MigrationLog, error) {
+// Status returns slice of logs of migrations
+func (m *DBMigrator) Status() ([]migration.Log, error) {
 	list, err := m.domain.Migration.Service.List(m.ctx)
 	err = api.AppErrorConv(err)
 	if err != nil && errors.Is(err, api.ErrNotFound) {
@@ -194,7 +200,7 @@ func (m *DBMigrator) Status() ([]migration.MigrationLog, error) {
 	return list, err
 }
 
-
+// DBVersion returns ID of last applied migration
 func DBVersion() (uint, error) {
 	if dbMigrator == nil {
 		return 0, api.ErrNotInitialised
@@ -202,7 +208,7 @@ func DBVersion() (uint, error) {
 	return dbMigrator.DBVersion()
 }
 
-
+// DBVersion returns ID of last applied migration
 func (m *DBMigrator) DBVersion() (uint, error) {
 	lm, err := m.domain.Migration.Service.Last(m.ctx)
 	err = api.AppErrorConv(err)
@@ -215,7 +221,7 @@ func (m *DBMigrator) DBVersion() (uint, error) {
 	return lm.ID, nil
 }
 
-
+// Create new migration file
 func Create(p api.MigrationCreateParams) (err error) {
 	if dbMigrator == nil {
 		return api.ErrNotInitialised
@@ -223,7 +229,7 @@ func Create(p api.MigrationCreateParams) (err error) {
 	return dbMigrator.Create(p)
 }
 
-
+// Create new migration file
 func (m *DBMigrator) Create(p api.MigrationCreateParams) (err error) {
 	cp := p.CoreParams()
 	if err = cp.Validate(); err != nil {

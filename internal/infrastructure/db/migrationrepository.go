@@ -28,13 +28,14 @@ func NewMigrationRepository(repository *repository) (*MigrationRepository, error
 	return &MigrationRepository{repository: *repository}, nil
 }
 
+// SetLogger is setter for logger
 func (r MigrationRepository) SetLogger(logger app.Logger) {
 	r.logger = logger
 }
 
 // get reads entities with the specified ID from the database.
-func (r MigrationRepository) get(ctx context.Context, tx *sqlx.Tx, id uint) (*migration.MigrationLog, error) {
-	entity := &migration.MigrationLog{}
+func (r MigrationRepository) get(ctx context.Context, tx *sqlx.Tx, id uint) (*migration.Log, error) {
+	entity := &migration.Log{}
 
 	err := tx.GetContext(ctx, entity, "SELECT * FROM " + migration.TableName + " WHERE id = $1", id)
 	if err != nil {
@@ -45,9 +46,9 @@ func (r MigrationRepository) get(ctx context.Context, tx *sqlx.Tx, id uint) (*mi
 	return entity, err
 }
 
-
-func (r MigrationRepository) Query(ctx context.Context, offset, limit uint) ([]migration.MigrationLog, error) {
-	var items []migration.MigrationLog
+// Query retrieves records with the specified offset and limit from the database.
+func (r MigrationRepository) Query(ctx context.Context, offset, limit uint) ([]migration.Log, error) {
+	var items []migration.Log
 
 	if limit == 0 {
 		limit = MaxLIstLimit
@@ -64,8 +65,8 @@ func (r MigrationRepository) Query(ctx context.Context, offset, limit uint) ([]m
 }
 
 // QueryTx retrieves records with the specified offset and limit from the database.
-func (r MigrationRepository) QueryTx(ctx context.Context, t migration.Transaction, query *migration.QueryCondition, offset, limit uint) ([]migration.MigrationLog, error) {
-	var items []migration.MigrationLog
+func (r MigrationRepository) QueryTx(ctx context.Context, t migration.Transaction, query *migration.QueryCondition, offset, limit uint) ([]migration.Log, error) {
+	var items []migration.Log
 	var where string
 
 	tx, ok := t.(*sqlx.Tx)
@@ -93,7 +94,7 @@ func (r MigrationRepository) QueryTx(ctx context.Context, t migration.Transactio
 }
 
 // Last retrieves a last record with the specified query condition and limit 1 from the database.
-func (r MigrationRepository) Last(ctx context.Context, query *migration.QueryCondition) (*migration.MigrationLog, error) {
+func (r MigrationRepository) Last(ctx context.Context, query *migration.QueryCondition) (*migration.Log, error) {
 	var where string
 	var params []interface{}
 
@@ -101,7 +102,7 @@ func (r MigrationRepository) Last(ctx context.Context, query *migration.QueryCon
 		where = " WHERE status = $1 "
 		params = append(params, query.Where.Status)
 	}
-	entity := &migration.MigrationLog{}
+	entity := &migration.Log{}
 
 	err := r.db.DB().GetContext(ctx, entity, "SELECT * FROM " + migration.TableName + where + " ORDER BY id DESC LIMIT 1", params...)
 	if err != nil {
@@ -113,7 +114,7 @@ func (r MigrationRepository) Last(ctx context.Context, query *migration.QueryCon
 }
 
 // LastTx retrieves a last record with the specified query condition and limit 1 from the database.
-func (r MigrationRepository) LastTx(ctx context.Context, t migration.Transaction, query *migration.QueryCondition) (*migration.MigrationLog, error) {
+func (r MigrationRepository) LastTx(ctx context.Context, t migration.Transaction, query *migration.QueryCondition) (*migration.Log, error) {
 	var where string
 
 	tx, ok := t.(*sqlx.Tx)
@@ -127,7 +128,7 @@ func (r MigrationRepository) LastTx(ctx context.Context, t migration.Transaction
 		where = " WHERE status = $1 "
 		params = append(params, query.Where.Status)
 	}
-	entity := &migration.MigrationLog{}
+	entity := &migration.Log{}
 
 	err := tx.GetContext(ctx, entity, "SELECT * FROM " + migration.TableName + where + " ORDER BY id DESC LIMIT 1", params...)
 	if err != nil {
@@ -139,13 +140,13 @@ func (r MigrationRepository) LastTx(ctx context.Context, t migration.Transaction
 }
 
 // BatchCreateTx saves a batch of a new entities in the database.
-func (r MigrationRepository) BatchCreateTx(ctx context.Context, t migration.Transaction, list migration.MigrationsLogsList) error {
+func (r MigrationRepository) BatchCreateTx(ctx context.Context, t migration.Transaction, list migration.LogsList) error {
 	tx, ok := t.(*sqlx.Tx)
 	if !ok {
 		return errors.New("can not assert param t migration.Transaction to *sqlx.Tx")
 	}
 
-	ids := list.GetIDs()
+	ids := list.IDs()
 	sort.Ints(ids)
 
 	for _, i := range ids {
@@ -162,13 +163,13 @@ func (r MigrationRepository) BatchCreateTx(ctx context.Context, t migration.Tran
 
 
 // BatchUpdateTx updates records of a batch entities in the database.
-func (r MigrationRepository) BatchUpdateTx(ctx context.Context, t migration.Transaction, list migration.MigrationsLogsList) error {
+func (r MigrationRepository) BatchUpdateTx(ctx context.Context, t migration.Transaction, list migration.LogsList) error {
 	tx, ok := t.(*sqlx.Tx)
 	if !ok {
 		return errors.New("can not assert param t migration.Transaction to *sqlx.Tx")
 	}
 
-	ids := list.GetIDs()
+	ids := list.IDs()
 	sort.Ints(ids)
 
 	for _, i := range ids {
@@ -184,7 +185,7 @@ func (r MigrationRepository) BatchUpdateTx(ctx context.Context, t migration.Tran
 }
 
 // create saves a new entity in the database.
-func (r MigrationRepository) create(ctx context.Context, tx *sqlx.Tx, entity *migration.MigrationLog) error {
+func (r MigrationRepository) create(ctx context.Context, tx *sqlx.Tx, entity *migration.Log) error {
 	var lastInsertID uint
 
 	err := tx.QueryRowContext(ctx, `
@@ -205,7 +206,7 @@ func (r MigrationRepository) create(ctx context.Context, tx *sqlx.Tx, entity *mi
 }
 
 // update recoprd of entity in db
-func (r MigrationRepository) update(ctx context.Context, tx *sqlx.Tx, entity *migration.MigrationLog) error {
+func (r MigrationRepository) update(ctx context.Context, tx *sqlx.Tx, entity *migration.Log) error {
 
 	_, err := tx.ExecContext(ctx, `
 			UPDATE ` + migration.TableName + ` 
@@ -234,12 +235,12 @@ func (r MigrationRepository) update(ctx context.Context, tx *sqlx.Tx, entity *mi
 	return nil
 }*/
 
-
+// BeginTx begins a transaction
 func (r MigrationRepository) BeginTx(ctx context.Context) (migration.Transaction, error) {
 	return r.db.DB().BeginTxx(ctx, nil)
 }
 
-
+// ExecSQL executes a SQL code
 func (r MigrationRepository) ExecSQL(ctx context.Context, sql string) error {
 	tx, err := r.db.DB().BeginTxx(ctx, nil)
 	if err != nil {
@@ -264,8 +265,8 @@ func (r MigrationRepository) ExecSQL(ctx context.Context, sql string) error {
 	return nil
 }
 
-
-func (r MigrationRepository) ExecFunc(ctx context.Context, f migration.MigrationFunc) (returnErr error) {
+// ExecFunc executes a function
+func (r MigrationRepository) ExecFunc(ctx context.Context, f migration.Func) (returnErr error) {
 	tx, err := r.db.DB().BeginTxx(ctx, nil)
 	if err != nil {
 		return errors.Wrapf(err, "MigrationRepository.ExecFunc: transaction begin error")
@@ -298,7 +299,7 @@ func (r MigrationRepository) ExecFunc(ctx context.Context, f migration.Migration
 	return nil
 }
 
-
+// ExecSQLTx executes a SQL code
 func (r MigrationRepository) ExecSQLTx(ctx context.Context, t migration.Transaction, sql string) error {
 	tx, ok := t.(*sqlx.Tx)
 	if !ok {
@@ -313,8 +314,8 @@ func (r MigrationRepository) ExecSQLTx(ctx context.Context, t migration.Transact
 	return nil
 }
 
-
-func (r MigrationRepository) ExecFuncTx(ctx context.Context, t migration.Transaction, f migration.MigrationFunc) (returnErr error) {
+// ExecFuncTx executes a function
+func (r MigrationRepository) ExecFuncTx(ctx context.Context, t migration.Transaction, f migration.Func) (returnErr error) {
 	tx, ok := t.(*sqlx.Tx)
 	if !ok {
 		return errors.New("can not assert param t migration.Transaction to *sqlx.Tx")

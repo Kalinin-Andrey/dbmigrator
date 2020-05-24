@@ -1,10 +1,12 @@
 package fixture
 
 import (
-	"github.com/Kalinin-Andrey/dbmigrator/internal/domain/migration"
 	"github.com/jmoiron/sqlx"
+
+	"github.com/Kalinin-Andrey/dbmigrator/internal/domain/migration"
 )
 
+// MigrationsList fixture
 var MigrationsList = &migration.MigrationsList{
 	1: migration.Migration{
 		ID:   1,
@@ -21,11 +23,11 @@ var MigrationsList = &migration.MigrationsList{
 	3: migration.Migration{
 		ID:   3,
 		Name: "third_migration",
-		Up:		migration.MigrationFunc(func(tx *sqlx.Tx) error {
+		Up:		migration.Func(func(tx *sqlx.Tx) error {
 			_, err := tx.Exec("CREATE TABLE IF NOT EXISTS public.test03(id int4)")
 			return err
 		}),
-		Down:	migration.MigrationFunc(func(tx *sqlx.Tx) error {
+		Down:	migration.Func(func(tx *sqlx.Tx) error {
 			_, err := tx.Exec("DROP TABLE public.test03")
 			return err
 		}),

@@ -5,27 +5,32 @@ import (
 
 )
 
-// MigrationLog struct
-type MigrationLog struct {
+// Log struct
+type Log struct {
 	ID				uint
 	Status			uint
 	Name			string
 	Time			time.Time
 }
 
-
-type MigrationsLogsList map[uint]MigrationLog
-type MigrationsLogsSlice []MigrationLog
+// LogsList is a map of Log entities
+type LogsList map[uint]Log
+// LogsSlice is a slice of Log entities
+type LogsSlice []Log
 
 
 const (
 	// TableName const
 	TableName        = "dbmigrator_migration"
+	// StatusNotApplied const
 	StatusNotApplied = 0
+	// StatusApplied const
 	StatusApplied    = 1
+	// StatusError const
 	StatusError      = 2
 )
 
+// SQLCreateTable is the SQL text for creation table
 var SQLCreateTable string = `CREATE TABLE IF NOT EXISTS public."` + TableName + `" (
 	id int4 NOT NULL,
 	status int4 NOT NULL DEFAULT 0,
@@ -43,9 +48,9 @@ type WhereCondition struct {
 	Status	uint
 }
 
-
-func (l MigrationsLogsList) GetSlice() (mls []MigrationLog) {
-	mls = make([]MigrationLog, 0, len(l))
+// Slice converts LogsList to slice
+func (l LogsList) Slice() (mls []Log) {
+	mls = make([]Log, 0, len(l))
 
 	for _, ml := range l {
 		mls = append(mls, ml)
@@ -54,7 +59,8 @@ func (l MigrationsLogsList) GetSlice() (mls []MigrationLog) {
 	return mls
 }
 
-func (l MigrationsLogsList) GetIDs() (ids []int) {
+// IDs returns slice of id
+func (l LogsList) IDs() (ids []int) {
 	ids = make([]int, 0, len(l))
 
 	for id := range l {
@@ -63,8 +69,9 @@ func (l MigrationsLogsList) GetIDs() (ids []int) {
 	return ids
 }
 
-func (l MigrationsLogsList) Copy() (mls MigrationsLogsList) {
-	mls = make(MigrationsLogsList, len(l))
+// Copy one LogsList to another
+func (l LogsList) Copy() (mls LogsList) {
+	mls = make(LogsList, len(l))
 
 	for id, ml := range l {
 		mls[id] = ml
@@ -73,10 +80,11 @@ func (l MigrationsLogsList) Copy() (mls MigrationsLogsList) {
 	return mls
 }
 
-func GroupLogsByStatus(list []MigrationLog) (l map[uint]MigrationsLogsList) {
-	l = make(map[uint]MigrationsLogsList, 2)
-	l[StatusNotApplied] = make(MigrationsLogsList)
-	l[StatusApplied] = make(MigrationsLogsList)
+// GroupLogsByStatus groups logs applied/not applied
+func GroupLogsByStatus(list []Log) (l map[uint]LogsList) {
+	l = make(map[uint]LogsList, 2)
+	l[StatusNotApplied] = make(LogsList)
+	l[StatusApplied] = make(LogsList)
 
 	for _, i := range list {
 		if i.Status == StatusApplied {
@@ -89,8 +97,8 @@ func GroupLogsByStatus(list []MigrationLog) (l map[uint]MigrationsLogsList) {
 	return l
 }
 
-
-func MigrationsListFilterExceptByKeys(sourceList MigrationsList, exceptList MigrationsLogsList) (l MigrationsList) {
+// MigrationsListFilterExceptByKeys returns MigrationsList with all entities from sourceList other than those represented in exceptList
+func MigrationsListFilterExceptByKeys(sourceList MigrationsList, exceptList LogsList) (l MigrationsList) {
 	l = make(MigrationsList)
 
 	for id, m := range sourceList {
@@ -102,12 +110,12 @@ func MigrationsListFilterExceptByKeys(sourceList MigrationsList, exceptList Migr
 	return l
 }
 
-
-func MigrationsListFilterExistsByKeys(sourceList MigrationsList, exceptList MigrationsLogsList) (l MigrationsList) {
+// MigrationsListFilterExistsByKeys returns MigrationsList with all entities from sourceList that represented in existList
+func MigrationsListFilterExistsByKeys(sourceList MigrationsList, existList LogsList) (l MigrationsList) {
 	l = make(MigrationsList)
 
 	for id, m := range sourceList {
-		if _, ok := exceptList[id]; ok {
+		if _, ok := existList[id]; ok {
 			l[id] = m
 		}
 	}
@@ -115,9 +123,9 @@ func MigrationsListFilterExistsByKeys(sourceList MigrationsList, exceptList Migr
 	return l
 }
 
-
-func MigrationsLogsFilterExceptByKeys(sourceList MigrationsLogsList, exceptList MigrationsLogsList) (l MigrationsLogsList) {
-	l = make(MigrationsLogsList)
+// MigrationsLogsFilterExceptByKeys returns LogsList with all entities from sourceList other than those represented in exceptList
+func MigrationsLogsFilterExceptByKeys(sourceList LogsList, exceptList LogsList) (l LogsList) {
+	l = make(LogsList)
 
 	for id, m := range sourceList {
 		if _, ok := exceptList[id]; !ok {
@@ -128,12 +136,12 @@ func MigrationsLogsFilterExceptByKeys(sourceList MigrationsLogsList, exceptList 
 	return l
 }
 
-
-func MigrationsLogsFilterExistsByKeys(sourceList MigrationsLogsList, exceptList MigrationsLogsList) (l MigrationsLogsList) {
-	l = make(MigrationsLogsList)
+// MigrationsLogsFilterExistsByKeys returns LogsList with all entities from sourceList that represented in existList
+func MigrationsLogsFilterExistsByKeys(sourceList LogsList, existList LogsList) (l LogsList) {
+	l = make(LogsList)
 
 	for id, m := range sourceList {
-		if _, ok := exceptList[id]; ok {
+		if _, ok := existList[id]; ok {
 			l[id] = m
 		}
 	}
@@ -141,16 +149,18 @@ func MigrationsLogsFilterExistsByKeys(sourceList MigrationsLogsList, exceptList 
 	return l
 }
 
-
-func (s MigrationsLogsSlice) Len() int {
+// Len returns length
+func (s LogsSlice) Len() int {
 	return len(s)
 }
 
-func (s MigrationsLogsSlice) Swap(i, j int) {
+// Swap swaps elements
+func (s LogsSlice) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-func (s MigrationsLogsSlice) Less(i, j int) bool {
+// Less returns true if i elements less than j elements, otherwise - false
+func (s LogsSlice) Less(i, j int) bool {
 	return s[i].ID < s[j].ID
 }
 

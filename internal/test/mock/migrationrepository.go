@@ -11,13 +11,16 @@ import (
 	"github.com/Kalinin-Andrey/dbmigrator/internal/test/fixture"
 )
 
+// Transaction mock
 type Transaction struct {
 }
 
+// MigrationRepository mock
 type MigrationRepository struct {
 	ExecutionLogs	[]MigrationRepositoryLog
 }
 
+// MigrationRepositoryLog struct
 type MigrationRepositoryLog struct {
 	MethodName	string
 	Params		map[string]interface{}
@@ -26,24 +29,29 @@ type MigrationRepositoryLog struct {
 var _ migration.IRepository = (*MigrationRepository)(nil)
 var _ migration.Transaction = (*Transaction)(nil)
 
+// Commit a transaction
 func (t Transaction) Commit() error {
 	return nil
 }
 
+// Rollback a transaction
 func (t Transaction) Rollback() error {
 	return nil
 }
 
+// NewMigrationRepository returns a new MigrationRepository mock
 func NewMigrationRepository() *MigrationRepository {
 	return &MigrationRepository{
 		ExecutionLogs:	make([]MigrationRepositoryLog, 0, 10),
 	}
 }
 
+// Reset MigrationRepository.ExecutionLogs
 func (r *MigrationRepository) Reset(logger app.Logger) {
 	r.ExecutionLogs = make([]MigrationRepositoryLog, 0, 10)
 }
 
+// SetLogger mock
 func (r *MigrationRepository) SetLogger(logger app.Logger) {
 	r.ExecutionLogs = append(r.ExecutionLogs, MigrationRepositoryLog{
 		MethodName:	"SetLogger",
@@ -53,7 +61,8 @@ func (r *MigrationRepository) SetLogger(logger app.Logger) {
 	})
 }
 
-func (r *MigrationRepository) Query(ctx context.Context, offset, limit uint) ([]migration.MigrationLog, error) {
+// Query mock
+func (r *MigrationRepository) Query(ctx context.Context, offset, limit uint) ([]migration.Log, error) {
 	r.ExecutionLogs = append(r.ExecutionLogs, MigrationRepositoryLog{
 		MethodName:	"Query",
 		Params:		map[string]interface{}{
@@ -66,13 +75,14 @@ func (r *MigrationRepository) Query(ctx context.Context, offset, limit uint) ([]
 	/*if limit == 0 {
 		limit = db.MaxLIstLimit
 	}*/
-	sl := fixture.MigrationsLogsList.GetSlice()
-	sort.Sort(migration.MigrationsLogsSlice(sl))
+	sl := fixture.MigrationsLogsList.Slice()
+	sort.Sort(migration.LogsSlice(sl))
 
 	return sl, nil
 }
 
-func (r *MigrationRepository) QueryTx(ctx context.Context, t migration.Transaction, query *migration.QueryCondition, offset, limit uint) ([]migration.MigrationLog, error) {
+// QueryTx mock
+func (r *MigrationRepository) QueryTx(ctx context.Context, t migration.Transaction, query *migration.QueryCondition, offset, limit uint) ([]migration.Log, error) {
 	r.ExecutionLogs = append(r.ExecutionLogs, MigrationRepositoryLog{
 		MethodName:	"QueryTx",
 		Params:		map[string]interface{}{
@@ -97,14 +107,15 @@ func (r *MigrationRepository) QueryTx(ctx context.Context, t migration.Transacti
 		return nil, apperror.ErrNotFound
 	}
 
-	sl := mls.GetSlice()
-	sort.Sort(migration.MigrationsLogsSlice(sl))
+	sl := mls.Slice()
+	sort.Sort(migration.LogsSlice(sl))
 
 	return sl, nil
 }
 
-func FilterMigrationsLogsByStatus(sourceMigrationsLogsList migration.MigrationsLogsList, status uint) migration.MigrationsLogsList {
-	ml := make(migration.MigrationsLogsList)
+// FilterMigrationsLogsByStatus mock
+func FilterMigrationsLogsByStatus(sourceMigrationsLogsList migration.LogsList, status uint) migration.LogsList {
+	ml := make(migration.LogsList)
 
 	for id, i := range sourceMigrationsLogsList {
 		if i.Status == status {
@@ -115,7 +126,8 @@ func FilterMigrationsLogsByStatus(sourceMigrationsLogsList migration.MigrationsL
 	return ml
 }
 
-func (r *MigrationRepository) Last(ctx context.Context, query *migration.QueryCondition) (*migration.MigrationLog, error) {
+// Last mock
+func (r *MigrationRepository) Last(ctx context.Context, query *migration.QueryCondition) (*migration.Log, error) {
 	r.ExecutionLogs = append(r.ExecutionLogs, MigrationRepositoryLog{
 		MethodName:	"Last",
 		Params:		map[string]interface{}{
@@ -134,13 +146,14 @@ func (r *MigrationRepository) Last(ctx context.Context, query *migration.QueryCo
 		return nil, apperror.ErrNotFound
 	}
 
-	sl := mls.GetSlice()
-	sort.Sort(migration.MigrationsLogsSlice(sl))
+	sl := mls.Slice()
+	sort.Sort(migration.LogsSlice(sl))
 
 	return &sl[len(sl) - 1], nil
 }
 
-func (r *MigrationRepository) LastTx(ctx context.Context, t migration.Transaction, query *migration.QueryCondition) (*migration.MigrationLog, error) {
+// LastTx mock
+func (r *MigrationRepository) LastTx(ctx context.Context, t migration.Transaction, query *migration.QueryCondition) (*migration.Log, error) {
 	r.ExecutionLogs = append(r.ExecutionLogs, MigrationRepositoryLog{
 		MethodName:	"LastTx",
 		Params:		map[string]interface{}{
@@ -160,12 +173,13 @@ func (r *MigrationRepository) LastTx(ctx context.Context, t migration.Transactio
 		return nil, apperror.ErrNotFound
 	}
 
-	sl := mls.GetSlice()
-	sort.Sort(migration.MigrationsLogsSlice(sl))
+	sl := mls.Slice()
+	sort.Sort(migration.LogsSlice(sl))
 
 	return &sl[len(sl) - 1], nil
 }
 
+// ExecSQL mock
 func (r *MigrationRepository) ExecSQL(ctx context.Context, sql string) error {
 	r.ExecutionLogs = append(r.ExecutionLogs, MigrationRepositoryLog{
 		MethodName:	"ExecSQL",
@@ -177,6 +191,7 @@ func (r *MigrationRepository) ExecSQL(ctx context.Context, sql string) error {
 	return nil
 }
 
+// ExecSQLTx mock
 func (r *MigrationRepository) ExecSQLTx(ctx context.Context, t migration.Transaction, sql string) error {
 	r.ExecutionLogs = append(r.ExecutionLogs, MigrationRepositoryLog{
 		MethodName:	"ExecSQLTx",
@@ -189,7 +204,8 @@ func (r *MigrationRepository) ExecSQLTx(ctx context.Context, t migration.Transac
 	return nil
 }
 
-func (r *MigrationRepository) ExecFunc(ctx context.Context, f migration.MigrationFunc) (err error) {
+// ExecFunc mock
+func (r *MigrationRepository) ExecFunc(ctx context.Context, f migration.Func) (err error) {
 	r.ExecutionLogs = append(r.ExecutionLogs, MigrationRepositoryLog{
 		MethodName:	"ExecFunc",
 		Params:		map[string]interface{}{
@@ -200,7 +216,8 @@ func (r *MigrationRepository) ExecFunc(ctx context.Context, f migration.Migratio
 	return nil
 }
 
-func (r *MigrationRepository) ExecFuncTx(ctx context.Context, t migration.Transaction, f migration.MigrationFunc) (err error) {
+// ExecFuncTx mock
+func (r *MigrationRepository) ExecFuncTx(ctx context.Context, t migration.Transaction, f migration.Func) (err error) {
 	r.ExecutionLogs = append(r.ExecutionLogs, MigrationRepositoryLog{
 		MethodName:	"ExecFuncTx",
 		Params:		map[string]interface{}{
@@ -212,6 +229,7 @@ func (r *MigrationRepository) ExecFuncTx(ctx context.Context, t migration.Transa
 	return nil
 }
 
+// BeginTx mock
 func (r *MigrationRepository) BeginTx(ctx context.Context) (migration.Transaction, error) {
 	r.ExecutionLogs = append(r.ExecutionLogs, MigrationRepositoryLog{
 		MethodName:	"BeginTx",
@@ -222,7 +240,8 @@ func (r *MigrationRepository) BeginTx(ctx context.Context) (migration.Transactio
 	return Transaction{}, nil
 }
 
-func (r *MigrationRepository) BatchCreateTx(ctx context.Context, t migration.Transaction, list migration.MigrationsLogsList) error {
+// BatchCreateTx mock
+func (r *MigrationRepository) BatchCreateTx(ctx context.Context, t migration.Transaction, list migration.LogsList) error {
 	r.ExecutionLogs = append(r.ExecutionLogs, MigrationRepositoryLog{
 		MethodName:	"BatchCreateTx",
 		Params:		map[string]interface{}{
@@ -242,7 +261,8 @@ func (r *MigrationRepository) BatchCreateTx(ctx context.Context, t migration.Tra
 	return nil
 }
 
-func (r *MigrationRepository) BatchUpdateTx(ctx context.Context, t migration.Transaction, list migration.MigrationsLogsList) error {
+// BatchUpdateTx mock
+func (r *MigrationRepository) BatchUpdateTx(ctx context.Context, t migration.Transaction, list migration.LogsList) error {
 	r.ExecutionLogs = append(r.ExecutionLogs, MigrationRepositoryLog{
 		MethodName:	"BatchUpdateTx",
 		Params:		map[string]interface{}{

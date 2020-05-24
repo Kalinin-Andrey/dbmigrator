@@ -16,7 +16,7 @@ import (
 // IRepository is an interface of repository
 type IRepository interface {
 	SetLogger(logger app.Logger)
-	Query(ctx context.Context, offset, limit uint) ([]migration.MigrationLog, error)
+	Query(ctx context.Context, offset, limit uint) ([]migration.Log, error)
 }
 
 // repository persists albums in database

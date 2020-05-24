@@ -23,6 +23,7 @@ var ErrUndefinedTypeOfAction error = errors.New("Undefined type of action")
 // ErrNotInitialised error
 var ErrNotInitialised error = errors.New("SQL Migrator is not initialised")
 
+// AppErrorConv is a converter from app errors to api errors
 func AppErrorConv(err error) (res error) {
 
 	switch {

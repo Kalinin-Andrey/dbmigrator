@@ -16,56 +16,61 @@ import (
 // IService encapsulates usecase logic for event.
 type IService interface {
 	// NewEntity returns new empty entity
-	NewEntity() *MigrationLog
+	NewEntity() *Log
 	// Get returns an entity with given ID
-	//Get(ctx context.Context, id uint) (*MigrationLog, error)
+	//Get(ctx context.Context, id uint) (*Log, error)
 	//First(ctx context.Context, entity *Event) (*Event, error)
 	// Query returns a list with pagination
-	Query(ctx context.Context, offset, limit uint) ([]MigrationLog, error)
+	Query(ctx context.Context, offset, limit uint) ([]Log, error)
 	// List entity
-	List(ctx context.Context) ([]MigrationLog, error)
+	List(ctx context.Context) ([]Log, error)
 	//Count(ctx context.Context) (uint, error)
 	// Create entity
-	//Create(ctx context.Context, entity *MigrationLog) error
+	//Create(ctx context.Context, entity *Log) error
 	// Update entity
-	//Update(ctx context.Context, entity *MigrationLog) error
+	//Update(ctx context.Context, entity *Log) error
 	// Delete entity
 	//Delete(ctx context.Context, id uint) error
 	// CreateTable creates table for migration
 	CreateTable(ctx context.Context) error
-	// Up migration
+	// Up a list of migrations
 	Up(ctx context.Context, ms MigrationsList, quantity int) error
-	// Down migration
+	// Down a list of migrations
 	Down(ctx context.Context, ms MigrationsList, quantity int) error
 	// Redo a last migration
 	Redo(ctx context.Context, ms MigrationsList) error
-	Last(ctx context.Context) (*MigrationLog, error)
-	Create(ctx context.Context, wr io.Writer, p MigrationCreateParams) (err error)
+	// Last returns a last Log
+	Last(ctx context.Context) (*Log, error)
+	// Create creates a file for migration
+	Create(ctx context.Context, wr io.Writer, p CreateParams) (err error)
+	// Create creates a main file for migrations execution
+	CreateMainFile(ctx context.Context, wr io.Writer) (err error)
 }
 
-type service struct {
-	//Domain     Domain
+// Service stgruct
+type Service struct {
 	repo   IRepository
 	logger app.Logger
 }
 
-const(
-	DefaultDownQuantity = 1
-)
+var _ IService = (*Service)(nil)
 
-// NewService creates a new service.
-func NewService(repo IRepository, logger app.Logger) IService {
-	s := &service{repo, logger}
+// DefaultDownQuantity const
+const DefaultDownQuantity = 1
+
+// NewService creates a new Service.
+func NewService(repo IRepository, logger app.Logger) *Service {
+	s := &Service{repo, logger}
 	return s
 }
 
 // NewEntity returns a new empty entity
-func (s service) NewEntity() *MigrationLog {
-	return &MigrationLog{}
+func (s Service) NewEntity() *Log {
+	return &Log{}
 }
 
 // Get returns the entity with the specified ID.
-/*func (s service) Get(ctx context.Context, id uint) (*MigrationLog, error) {
+/*func (s Service) Get(ctx context.Context, id uint) (*Log, error) {
 	entity, err := s.repo.Get(ctx, id)
 	if err != nil {
 		if err == apperror.ErrNotFound {
@@ -77,7 +82,7 @@ func (s service) NewEntity() *MigrationLog {
 }*/
 
 // Query returns the items with the specified offset and limit.
-func (s service) Query(ctx context.Context, offset, limit uint) ([]MigrationLog, error) {
+func (s Service) Query(ctx context.Context, offset, limit uint) ([]Log, error) {
 	items, err := s.repo.Query(ctx, offset, limit)
 	if err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
@@ -88,9 +93,8 @@ func (s service) Query(ctx context.Context, offset, limit uint) ([]MigrationLog,
 	return items, nil
 }
 
-
 // List returns the items list.
-func (s service) List(ctx context.Context) ([]MigrationLog, error) {
+func (s Service) List(ctx context.Context) ([]Log, error) {
 	items, err := s.repo.Query(ctx, 0, 0)
 	if err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
@@ -102,26 +106,27 @@ func (s service) List(ctx context.Context) ([]MigrationLog, error) {
 }
 
 // Create entity
-/*func (s service) Create(ctx context.Context, entity *MigrationLog) error {
+/*func (s Service) Create(ctx context.Context, entity *Log) error {
 	return s.repo.Create(ctx, entity)
 }
 
 // Update entity
-func (s service) Update(ctx context.Context, entity *MigrationLog) error {
+func (s Service) Update(ctx context.Context, entity *Log) error {
 	return s.repo.Update(ctx, entity)
 }
 
 // Delete entity
-func (s service) Delete(ctx context.Context, id uint) error {
+func (s Service) Delete(ctx context.Context, id uint) error {
 	return s.repo.Delete(ctx, id)
 }*/
 
 // CreateTable creates table for migration
-func (s service) CreateTable(ctx context.Context) error {
+func (s Service) CreateTable(ctx context.Context) error {
 	return s.repo.ExecSQL(ctx, SQLCreateTable)
 }
 
-func (s service) Last(ctx context.Context) (*MigrationLog, error) {
+// Last returns a last Log
+func (s Service) Last(ctx context.Context) (*Log, error) {
 	mLog, err := s.repo.Last(ctx, &QueryCondition{
 		Where:	&WhereCondition{
 			Status:	StatusApplied,
@@ -137,8 +142,8 @@ func (s service) Last(ctx context.Context) (*MigrationLog, error) {
 	return mLog, nil
 }
 
-// Up list of migrations
-func (s service) Up(ctx context.Context, ms MigrationsList, quantity int) error {
+// Up a list of migrations
+func (s Service) Up(ctx context.Context, ms MigrationsList, quantity int) error {
 	t, err := s.repo.BeginTx(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "migration.Service.Up: transaction begin error")
@@ -151,11 +156,19 @@ func (s service) Up(ctx context.Context, ms MigrationsList, quantity int) error 
 
 	gl			:= GroupLogsByStatus(list)
 	migrations	:= MigrationsListFilterExceptByKeys(ms, gl[StatusApplied])
-	ids			:= migrations.GetIDs()
+	ids			:= migrations.IDs()
 	sort.Ints(ids)
 
 	if quantity < 1 {
 		quantity = len(ids)
+	}
+
+	if len(ids) < quantity {
+		quantity = len(ids)
+	}
+
+	if quantity == 0 {
+		return apperror.ErrNotFound
 	}
 
 	appliedMigrationsLogs, idErr, err := s.upProceed(ctx, migrations, ids[:quantity])
@@ -198,8 +211,8 @@ func (s service) Up(ctx context.Context, ms MigrationsList, quantity int) error 
 	return nil
 }
 
-// Down list of migrations
-func (s service) Down(ctx context.Context, ms MigrationsList, quantity int) error {
+// Down a list of migrations
+func (s Service) Down(ctx context.Context, ms MigrationsList, quantity int) error {
 	t, err := s.repo.BeginTx(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "migration.Service.Down: transaction begin error")
@@ -207,16 +220,27 @@ func (s service) Down(ctx context.Context, ms MigrationsList, quantity int) erro
 
 	list, err := s.repo.QueryTx(ctx, t, nil, 0, 0)
 	if err != nil {
+		if errors.Is(err, apperror.ErrNotFound) {
+			return err
+		}
 		return errors.Wrapf(apperror.ErrInternal, "migration.Service.Down: get list logs of migrations error: %v", err)
 	}
 
 	gl			:= GroupLogsByStatus(list)
 	migrations	:= MigrationsListFilterExistsByKeys(ms, gl[StatusApplied])
-	ids			:= migrations.GetIDs()
+	ids			:= migrations.IDs()
 	sort.Sort(sort.Reverse(sort.IntSlice(ids)))
 
 	if quantity < 1 {
 		quantity = DefaultDownQuantity
+	}
+
+	if len(ids) < quantity {
+		quantity = len(ids)
+	}
+
+	if quantity == 0 {
+		return apperror.ErrNotFound
 	}
 
 	migrationsLogsForUpdate, _, er := s.downProceed(ctx, migrations, ids[:quantity])
@@ -239,7 +263,7 @@ func (s service) Down(ctx context.Context, ms MigrationsList, quantity int) erro
 }
 
 // Redo a last migration
-func (s service) Redo(ctx context.Context, ms MigrationsList) error {
+func (s Service) Redo(ctx context.Context, ms MigrationsList) error {
 	t, err := s.repo.BeginTx(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "migration.Service.Redo: transaction begin error")
@@ -293,8 +317,8 @@ func (s service) Redo(ctx context.Context, ms MigrationsList) error {
 }
 
 
-func (s service) upProceed(ctx context.Context, ms MigrationsList, ids []int) (appliedMigrationsLogs MigrationsLogsList, idErr uint, err error) {
-	appliedMigrationsLogs = make(MigrationsLogsList, len(ids))
+func (s Service) upProceed(ctx context.Context, ms MigrationsList, ids []int) (appliedMigrationsLogs LogsList, idErr uint, err error) {
+	appliedMigrationsLogs = make(LogsList, len(ids))
 
 	for _, i := range ids {
 		id := uint(i)
@@ -310,8 +334,8 @@ func (s service) upProceed(ctx context.Context, ms MigrationsList, ids []int) (a
 }
 
 
-func (s service) downProceed(ctx context.Context, ms MigrationsList, ids []int) (downMigrationsLogs MigrationsLogsList, idErr uint, err error) {
-	downMigrationsLogs = make(MigrationsLogsList, len(ids))
+func (s Service) downProceed(ctx context.Context, ms MigrationsList, ids []int) (downMigrationsLogs LogsList, idErr uint, err error) {
+	downMigrationsLogs = make(LogsList, len(ids))
 
 	for _, i := range ids {
 		id := uint(i)
@@ -328,12 +352,12 @@ func (s service) downProceed(ctx context.Context, ms MigrationsList, ids []int) 
 
 
 
-func (s service) actionExec(ctx context.Context, in interface{}) (err error) {
+func (s Service) actionExec(ctx context.Context, in interface{}) (err error) {
 
 	switch i := in.(type) {
 	case string:
 		err = s.repo.ExecSQL(ctx, i)
-	case MigrationFunc:
+	case Func:
 		err = s.repo.ExecFunc(ctx, i)
 	default:
 		err = apperror.ErrUndefinedTypeOfAction
@@ -343,12 +367,12 @@ func (s service) actionExec(ctx context.Context, in interface{}) (err error) {
 }
 
 
-func (s service) actionExecTx(ctx context.Context, t Transaction, in interface{}) (err error) {
+func (s Service) actionExecTx(ctx context.Context, t Transaction, in interface{}) (err error) {
 
 	switch i := in.(type) {
 	case string:
 		err = s.repo.ExecSQLTx(ctx, t, i)
-	case MigrationFunc:
+	case Func:
 		err = s.repo.ExecFuncTx(ctx, t, i)
 	default:
 		err = apperror.ErrUndefinedTypeOfAction
@@ -357,15 +381,16 @@ func (s service) actionExecTx(ctx context.Context, t Transaction, in interface{}
 	return err
 }
 
-func (s service) Create(ctx context.Context, wr io.Writer, p MigrationCreateParams) (err error) {
+// Create creates a file for migration
+func (s Service) Create(ctx context.Context, wr io.Writer, p CreateParams) (err error) {
 	if err = p.Validate(); err != nil {
 		return errors.Wrapf(err, "Invalid create params")
 	}
 
-	return getTemplate().ExecuteTemplate(wr, "tpl", p)
+	return s.getTemplate().ExecuteTemplate(wr, "tpl", p)
 }
 
-func getTemplate() (*template.Template) {
+func (s Service) getTemplate() (*template.Template) {
 	return template.Must(template.New("tpl").Parse(`
 package migration
 
@@ -393,5 +418,9 @@ func init() {
 `))
 }
 
+// CreateMainFile here is dummy. Redefined in ServiceTool.
+func (s Service) CreateMainFile(ctx context.Context, wr io.Writer) (err error) {
+	return nil
+}
 
 

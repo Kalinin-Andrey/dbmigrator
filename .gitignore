@@ -1,5 +1,6 @@
 .idea
 log/*
 deployment/data/*
+migration_lib/*
 migration/*
 !.placeholder

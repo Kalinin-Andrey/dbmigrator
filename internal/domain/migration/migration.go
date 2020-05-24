@@ -10,19 +10,23 @@ import (
 	"github.com/Kalinin-Andrey/dbmigrator/internal/pkg/apperror"
 )
 
-
+// MigrationTypeSQL - MigrationType gor SQL
 const MigrationTypeSQL = "sql"
+// MigrationTypeGo - MigrationType gor go
 const MigrationTypeGo = "go"
 
+// MigrationTypes is slice of migration types
 var MigrationTypes = []interface{}{MigrationTypeSQL, MigrationTypeGo}
 
-type MigrationCreateParams struct {
+// CreateParams is struct for params for creation of migration
+type CreateParams struct {
 	ID		uint
 	Type	string
 	Name	string
 }
 
-func (p MigrationCreateParams) Validate() error {
+// Validate method
+func (p CreateParams) Validate() error {
 	return validation.ValidateStruct(&p,
 		validation.Field(&p.ID, validation.Required),
 		validation.Field(&p.Type, validation.Required, validation.In(MigrationTypes...)),
@@ -30,8 +34,8 @@ func (p MigrationCreateParams) Validate() error {
 	)
 }
 
-// Migration
-// Up and Down is a MigrationFunc or a string (plain SQL text)
+// Migration struct
+// Up and Down is a Func or a string (plain SQL text)
 type Migration struct {
 	ID		uint
 	Name	string
@@ -39,8 +43,8 @@ type Migration struct {
 	Down	interface{}
 }
 
-// MigrationFunc is func for migrations Up/Down
-type MigrationFunc func(tx *sqlx.Tx) error
+// Func is func for migrations Up/Down
+type Func func(tx *sqlx.Tx) error
 
 var migrationRule = []validation.Rule{
 	validation.NotNil,
@@ -48,7 +52,7 @@ var migrationRule = []validation.Rule{
 	validation.By(migrationFuncOrStringRule),
 }
 
-
+// Validate method
 func (m Migration) Validate() error {
 
 	err := validation.ValidateStruct(&m,
@@ -63,28 +67,27 @@ func (m Migration) Validate() error {
 func migrationFuncOrStringRule(value interface{}) (err error) {
 	switch value.(type) {
 	case string:
-	case MigrationFunc:
+	case Func:
 	default:
 		err = apperror.ErrUndefinedTypeOfAction
 	}
 	return err
 }
 
-
-func (m Migration) Log (status uint) *MigrationLog {
-	return &MigrationLog{
+// Log returns corresponding Log
+func (m Migration) Log (status uint) *Log {
+	return &Log{
 		ID:		m.ID,
 		Status:	status,
 		Name:	m.Name,
 	}
 }
 
-
-
+// MigrationsList ia a map of Migration
 type MigrationsList map[uint]Migration
 
-
-func (l MigrationsList) GetIDs() (ids []int) {
+// IDs returns slice of IDs
+func (l MigrationsList) IDs() (ids []int) {
 	ids = make([]int, 0, len(l))
 
 	for id := range l {

@@ -25,7 +25,7 @@ var GoTpl = "\npackage migration\n\nimport (\n\t\"github.com/Kalinin-Andrey/dbmi
 
 
 func getSQLMigrator() (*dbmigrator.DBMigrator, error) {
-	return dbmigrator.NewSQLMigrator(
+	return dbmigrator.NewDBMigrator(
 		context.Background(),
 		api.Configuration{
 			Dir:	Dir,
@@ -68,11 +68,11 @@ func TestDown(t *testing.T) {
 	mls := fixture.MigrationsLogsList.Copy()
 
 	if len(mls) == 0 {
-		t.Fatalf("fixture.MigrationsLogsList is empty")
+		t.Fatalf("fixture.LogsList is empty")
 	}
 	mls = mock.FilterMigrationsLogsByStatus(mls, migration.StatusApplied)
-	sl := mls.GetSlice()
-	sort.Sort(migration.MigrationsLogsSlice(sl))
+	sl := mls.Slice()
+	sort.Sort(migration.LogsSlice(sl))
 	lastAppliedID := sl[len(sl) - 1].ID
 
 	ml := mls[lastAppliedID]
@@ -115,12 +115,12 @@ func TestRedo(t *testing.T) {
 
 
 func TestStatus(t *testing.T) {
-	var expectedList []migration.MigrationLog
+	var expectedList []migration.Log
 	mls := *fixture.MigrationsLogsList
 
 	if len(mls) > 0 {
-		expectedList = mls.GetSlice()
-		sort.Sort(migration.MigrationsLogsSlice(expectedList))
+		expectedList = mls.Slice()
+		sort.Sort(migration.LogsSlice(expectedList))
 	}
 
 	m, err := getSQLMigrator()
@@ -145,8 +145,8 @@ func TestDBVersion(t *testing.T) {
 
 	if len(mls) > 0 {
 		mls = mock.FilterMigrationsLogsByStatus(mls, migration.StatusApplied)
-		sl := mls.GetSlice()
-		sort.Sort(migration.MigrationsLogsSlice(sl))
+		sl := mls.Slice()
+		sort.Sort(migration.LogsSlice(sl))
 		expectedDBVersion = sl[len(sl) - 1].ID
 	}
 

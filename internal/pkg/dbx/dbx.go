@@ -2,6 +2,7 @@ package dbx
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -9,11 +10,15 @@ import (
 	_ "github.com/lib/pq"
 )
 
-
+// Configuration for connection to DB
 type Configuration struct {
 	DSN		string
 	Dir		string
 	Dialect	string
+}
+
+func (c *Configuration) clearQuotes() {
+	c.DSN = strings.Trim(c.DSN, `"`)
 }
 
 // DBx is the interface for a DB connection
@@ -21,7 +26,7 @@ type DBx interface {
 	DB() *sqlx.DB
 }
 
-// DBx is the struct for a DB connection
+// DB is the struct for a DB connection
 type DB struct {
 	db *sqlx.DB
 }
@@ -45,6 +50,7 @@ func New(conf Configuration, timeout *time.Duration) (*DB, error) {
 	if timeout == nil {
 		timeout = &defaultTimeout
 	}
+	conf.clearQuotes()
 	db, err := connectLoop(conf.Dialect, conf.DSN, *timeout)
 
 	if err != nil {
@@ -72,7 +78,6 @@ func connectLoop(dialect string, dsn string, timeout time.Duration) (*sqlx.DB, e
 			if err == nil {
 				return db, nil
 			}
-			//errors.Wrapf(err, "Can not connect to DB %s by DSN: %q", dialect, dsn)
 		}
 	}
 }

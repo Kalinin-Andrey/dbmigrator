@@ -7,24 +7,26 @@ import (
 	"os"
 )
 
-
+// Logger interface for application
 type Logger interface {
 	Print(v ...interface{})
 	Fatal(v ...interface{})
 }
 
+// Configuration struct
 type Configuration struct {
 	DSN		string
 	Dir		string
 	Dialect	string
 }
 
-
-func (config *Configuration) ExpandEnv() {
-	config.Dir = os.ExpandEnv(config.Dir)
-	config.DSN = os.ExpandEnv(config.DSN)
+// ExpandEnv reads env vars
+func (c *Configuration) ExpandEnv() {
+	c.Dir = os.ExpandEnv(c.Dir)
+	c.DSN = os.ExpandEnv(c.DSN)
 }
 
+// DBxConf converts to the dbx configuration
 func (c *Configuration) DBxConf() *dbx.Configuration {
 	return &dbx.Configuration{
 		DSN:     c.DSN,
@@ -33,26 +35,30 @@ func (c *Configuration) DBxConf() *dbx.Configuration {
 	}
 }
 
-
+// MigrationTypes is slice of migration types
 var MigrationTypes = []interface{}{migration.MigrationTypeSQL, migration.MigrationTypeGo}
 
+// MigrationCreateParams is struct for params for creation of migration
 type MigrationCreateParams struct {
 	ID		uint
 	Type	string
 	Name	string
 }
 
-func (p *MigrationCreateParams) CoreParams() *migration.MigrationCreateParams {
-	return &migration.MigrationCreateParams{
+// CoreParams converts to core params
+func (p *MigrationCreateParams) CoreParams() *migration.CreateParams {
+	return &migration.CreateParams{
 		ID:		p.ID,
 		Type:	p.Type,
 		Name:	p.Name,
 	}
 }
 
+// MigrationStatuses is the slice of the migration statuses
 var MigrationStatuses = []string{"not applied", "applied", "error"}
 
-
+// Migration struct
+// Up and Down is a Func or a string (plain SQL text)
 type Migration struct {
 	ID		uint
 	Name	string
@@ -60,17 +66,18 @@ type Migration struct {
 	Down	interface{}
 }
 
+// CoreMigration converts to core migration
 func (m Migration) CoreMigration() *migration.Migration {
 	var up, down interface{}
 	up		= m.Up
 	down	= m.Down
 
 	if act, ok := (m.Up).(MigrationFunc); ok {
-		up = (migration.MigrationFunc)(act)
+		up = (migration.Func)(act)
 	}
 
 	if act, ok := (m.Down).(MigrationFunc); ok {
-		down = (migration.MigrationFunc)(act)
+		down = (migration.Func)(act)
 	}
 
 	return &migration.Migration{
@@ -81,5 +88,6 @@ func (m Migration) CoreMigration() *migration.Migration {
 	}
 }
 
+// MigrationFunc type
 type MigrationFunc func(tx *sqlx.Tx) error
 
